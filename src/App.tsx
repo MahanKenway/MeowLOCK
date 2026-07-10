@@ -52,6 +52,7 @@ import {
 } from "./types";
 import DataHubWidget from "./components/DataHubWidget";
 import { preloadAppAssets } from "./utils/preloader";
+import { getImageUrl } from "./utils/imageLoader";
 
 // --- INDEXEDDB HELPER FOR PERSISTING LOCAL CUSTOM BACKGROUND FILES ---
 const DB_NAME = "flocus_bg_db";
@@ -1082,7 +1083,7 @@ export default function App() {
   const currentUiStyle = activeProfile.uiStyle || "glass";
 
   const isLocal = activeProfile.bgUrl === "custom_local";
-  const standardBgUrl = isLocal ? (localBgUrl || "") : activeProfile.bgUrl;
+  const standardBgUrl = isLocal ? (localBgUrl || "") : getImageUrl(activeProfile.bgUrl);
   const rawBgUrlToRender = nasaBgUrl ? nasaBgUrl : standardBgUrl;
   const bgUrlToRender = rawBgUrlToRender
     ? rawBgUrlToRender.replace(/^http:\/\//i, "https://")

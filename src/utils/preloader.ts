@@ -1,3 +1,5 @@
+import { getImageUrl } from './imageLoader';
+
 /**
  * High-performance progressive pre-caching mechanism for Workspace Studio.
  * Preloads pixel-art backgrounds and expressive typography fonts in a non-blocking sequence,
@@ -116,7 +118,7 @@ interface PreloadOptions {
  */
 export async function preloadAppAssets(options: PreloadOptions = {}) {
   // 1. Prioritized Phase: Active Background & Active Fonts
-  const activeBg = options.activeBgUrl;
+  const activeBg = options.activeBgUrl ? getImageUrl(options.activeBgUrl) : undefined;
   const activeFontFamily = options.activeFontClass 
     ? FONT_FAMILIES.find(f => options.activeFontClass?.includes(f.toLowerCase().replace(/\s+/g, "")))
     : null;
@@ -170,7 +172,8 @@ export async function preloadAppAssets(options: PreloadOptions = {}) {
     }
 
     // Pre-cache remaining background images in progressive chunks
-    const remainingBgs = PRESET_BACKGROUNDS.filter(bg => bg !== activeBg);
+    const resolvedPresetBgs = PRESET_BACKGROUNDS.map(bg => getImageUrl(bg));
+    const remainingBgs = resolvedPresetBgs.filter(bg => bg !== activeBg);
     
     // Load images in small batches of 3 to prevent network throttling
     const batchSize = 3;
