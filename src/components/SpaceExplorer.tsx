@@ -631,7 +631,7 @@ export default function SpaceExplorer({
                     )}
                   </div>
 
-                  {/* Anti-Censorship Video Notice & Toggle (ضد تحریم) */}
+                  {/* Anti-Censorship Video Notice & Toggle (Anti-Censorship) */}
                   {apodData.media_type === "video" && !isReadingMode && (
                     <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-2 rounded-xl text-[10px]">
                       <div className="flex items-center gap-1.5">

@@ -178,7 +178,7 @@ export default function WeatherWidget({ onClose, isExpanded, onToggleExpand }: W
         <div className="flex flex-col items-center pt-8 pb-4 text-center">
           <div className="flex items-center gap-2 text-2xl font-medium tracking-wide mb-2">
             <MapPin className="w-5 h-5 text-white/70" />
-            تهران
+            Tehran
           </div>
           <div className="text-xs font-medium text-white/80 uppercase tracking-widest mb-6">
             Tehran

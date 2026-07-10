@@ -51,15 +51,15 @@ interface CalendarHoliday {
 
 // Fixed solar holidays
 const fixedHolidays: CalendarHoliday[] = [
-  { shamsiDate: { m: 1, d: 1 }, titleFa: "عید نوروز", titleEn: "Nowruz (New Year)", isOfficial: true },
-  { shamsiDate: { m: 1, d: 2 }, titleFa: "عید نوروز", titleEn: "Nowruz Holiday", isOfficial: true },
-  { shamsiDate: { m: 1, d: 3 }, titleFa: "عید نوروز", titleEn: "Nowruz Holiday", isOfficial: true },
-  { shamsiDate: { m: 1, d: 4 }, titleFa: "عید نوروز", titleEn: "Nowruz Holiday", isOfficial: true },
-  { shamsiDate: { m: 1, d: 12 }, titleFa: "روز جمهوری اسلامی", titleEn: "Islamic Republic Day", isOfficial: true },
-  { shamsiDate: { m: 1, d: 13 }, titleFa: "روز طبیعت (سیزده بدر)", titleEn: "Sizdah Bedar", isOfficial: true },
+  { shamsiDate: { m: 1, d: 1 }, titleFa: "عید نوDay", titleEn: "Nowruz (New Year)", isOfficial: true },
+  { shamsiDate: { m: 1, d: 2 }, titleFa: "عید نوDay", titleEn: "Nowruz Holiday", isOfficial: true },
+  { shamsiDate: { m: 1, d: 3 }, titleFa: "عید نوDay", titleEn: "Nowruz Holiday", isOfficial: true },
+  { shamsiDate: { m: 1, d: 4 }, titleFa: "عید نوDay", titleEn: "Nowruz Holiday", isOfficial: true },
+  { shamsiDate: { m: 1, d: 12 }, titleFa: "Day جمهوری اسلامی", titleEn: "Islamic Republic Day", isOfficial: true },
+  { shamsiDate: { m: 1, d: 13 }, titleFa: "Day طبیعت (سیزده بدر)", titleEn: "Sizdah Bedar", isOfficial: true },
   { shamsiDate: { m: 3, d: 14 }, titleFa: "رحلت امام خمینی", titleEn: "Demise of Imam Khomeini", isOfficial: true },
   { shamsiDate: { m: 3, d: 15 }, titleFa: "قیام ۱۵ خرداد", titleEn: "Revolt of Khordad 15", isOfficial: true },
-  { shamsiDate: { m: 11, d: 22 }, titleFa: "پیروزی انقلاب اسلامی", titleEn: "Islamic Revolution Day", isOfficial: true },
+  { shamsiDate: { m: 11, d: 22 }, titleFa: "پیDayی انقلاب اسلامی", titleEn: "Islamic Revolution Day", isOfficial: true },
   { shamsiDate: { m: 12, d: 29 }, titleFa: "ملی شدن صنعت نفت", titleEn: "Nationalization of Oil Industry", isOfficial: true }
 ];
 
@@ -204,7 +204,7 @@ export default function CalendarWidget({
         const res = toJalaali(gy, gm, gd);
         setConvResultJ(`${res.jy}/${res.jm}/${res.jd} (${shamsiMonths[res.jm - 1]})`);
       } catch (e) {
-        setConvResultJ("نامعتبر");
+        setConvResultJ("Invalid");
       }
     } else {
       setConvResultJ("ـ");
@@ -221,7 +221,7 @@ export default function CalendarWidget({
         const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         setConvResultG(`${res.gy}/${res.gm}/${res.gd} (${monthsEn[res.gm - 1]})`);
       } catch (e) {
-        setConvResultG("نامعتبر");
+        setConvResultG("Invalid");
       }
     } else {
       setConvResultG("ـ");
@@ -451,7 +451,7 @@ export default function CalendarWidget({
             <button 
               onClick={prevShamsiMonth}
               className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white cursor-pointer transition-colors"
-              title="ماه قبل"
+              title="Previous Month"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -461,7 +461,7 @@ export default function CalendarWidget({
             <button 
               onClick={nextShamsiMonth}
               className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white cursor-pointer transition-colors"
-              title="ماه بعد"
+              title="Next Month"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -493,7 +493,7 @@ export default function CalendarWidget({
               calendarSubMode === "shamsi" ? "bg-white/10 text-white border border-white/5" : "text-gray-400 hover:text-white hover:bg-white/5"
             }`}
           >
-            تقویم شمسی
+            Solar Calendar
           </button>
           <button
             onClick={() => setCalendarSubMode("converter")}
@@ -501,7 +501,7 @@ export default function CalendarWidget({
               calendarSubMode === "converter" ? "bg-white/10 text-white border border-white/5" : "text-gray-400 hover:text-white hover:bg-white/5"
             }`}
           >
-            مبدل تاریخ
+            Date Converter
           </button>
           <button
             onClick={() => setCalendarSubMode("events")}
@@ -509,7 +509,7 @@ export default function CalendarWidget({
               calendarSubMode === "events" ? "bg-white/10 text-white border border-white/5" : "text-gray-400 hover:text-white hover:bg-white/5"
             }`}
           >
-            برنامه‌ها ({events.length})
+            Events ({events.length})
             {events.length > 0 && (
               <span className="absolute top-1 right-2 w-1 h-1 bg-sky-400 rounded-full animate-ping" />
             )}
@@ -595,14 +595,14 @@ export default function CalendarWidget({
                   <div className="mt-4 bg-white/5 border border-white/5 rounded-2xl p-3 space-y-2">
                     <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
                       <span className="text-[10px] text-gray-400">
-                        برنامه‌های {toPersianNum(selectedDay.j.split("-")[2])} {shamsiMonths[parseInt(selectedDay.j.split("-")[1]) - 1]}
+                        Events for {toPersianNum(selectedDay.j.split("-")[2])} {shamsiMonths[parseInt(selectedDay.j.split("-")[1]) - 1]}
                       </span>
                       {!showEventForm && (
                         <button
                           onClick={() => setShowEventForm(true)}
                           className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
                         >
-                          <Plus className="w-3 h-3" /> افزودن برنامه مطالعاتی
+                          <Plus className="w-3 h-3" /> Add Study Plan
                         </button>
                       )}
                     </div>
@@ -618,7 +618,7 @@ export default function CalendarWidget({
                             <Info className="w-3 h-3" /> {holiday.titleFa}
                           </span>
                           {holiday.isOfficial && (
-                            <span className="text-[8px] bg-rose-500 text-white px-1 py-0.5 rounded uppercase font-black tracking-tighter">تعطیل رسمی</span>
+                            <span className="text-[8px] bg-rose-500 text-white px-1 py-0.5 rounded uppercase font-black tracking-tighter">Official Holiday</span>
                           )}
                         </div>
                       );
@@ -628,7 +628,7 @@ export default function CalendarWidget({
                     <div className="max-h-[90px] overflow-y-auto no-scrollbar space-y-1.5">
                       {getEventsForDay(selectedDay.g).length === 0 ? (
                         <div className="text-center py-2 text-[10px] text-gray-500">
-                          هیچ برنامه‌ای برای این روز ثبت نشده است.
+                          No events scheduled for this day.
                         </div>
                       ) : (
                         getEventsForDay(selectedDay.g).map((ev) => (
@@ -662,7 +662,7 @@ export default function CalendarWidget({
                 {/* Miladi to Shamsi */}
                 <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
                   <h4 className="text-xs font-bold text-sky-400 flex items-center gap-1.5 mb-2">
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> تبدیل میلادی به شمسی
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Gregorian to Solar
                   </h4>
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     <div>
@@ -698,7 +698,7 @@ export default function CalendarWidget({
                     </div>
                   </div>
                   <div className="bg-white/5 border border-white/5 rounded-lg px-3 py-1.5 flex items-center justify-between">
-                    <span className="text-[10px] text-gray-400">تاریخ شمسی معادل:</span>
+                    <span className="text-[10px] text-gray-400">Equivalent Solar Date:</span>
                     <span className="text-xs font-bold text-white font-mono">{toPersianNum(convResultJ)}</span>
                   </div>
                 </div>
@@ -706,11 +706,11 @@ export default function CalendarWidget({
                 {/* Shamsi to Miladi */}
                 <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
                   <h4 className="text-xs font-bold text-sky-400 flex items-center gap-1.5 mb-2">
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> تبدیل شمسی به میلادی
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Solar to Gregorian
                   </h4>
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     <div>
-                      <label className="text-[8px] text-gray-400 uppercase block mb-1">سال شمسی</label>
+                      <label className="text-[8px] text-gray-400 uppercase block mb-1">Solar Year</label>
                       <input
                         type="number"
                         value={convJYear}
@@ -719,7 +719,7 @@ export default function CalendarWidget({
                       />
                     </div>
                     <div>
-                      <label className="text-[8px] text-gray-400 uppercase block mb-1">ماه</label>
+                      <label className="text-[8px] text-gray-400 uppercase block mb-1">Month</label>
                       <input
                         type="number"
                         value={convJMonth}
@@ -730,7 +730,7 @@ export default function CalendarWidget({
                       />
                     </div>
                     <div>
-                      <label className="text-[8px] text-gray-400 uppercase block mb-1">روز</label>
+                      <label className="text-[8px] text-gray-400 uppercase block mb-1">Day</label>
                       <input
                         type="number"
                         value={convJDay}
@@ -753,21 +753,21 @@ export default function CalendarWidget({
             {calendarSubMode === "events" && (
               <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 pt-2">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">لیست برنامه‌های شما</span>
+                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">لیست Events for شما</span>
                   {events.length > 0 && (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleExportICS}
                         className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
-                        title="خروجی تقویم استاندارد"
+                        title="Standard Calendar Export"
                       >
-                        <Download className="w-3 h-3" /> دانلود تقویم (.ics)
+                        <Download className="w-3 h-3" /> Download Calendar (.ics)
                       </button>
                       <button
-                        onClick={() => { if(confirm("آیا می‌خواهید تمام رویدادها را حذف کنید؟")) onDeleteAllEvents(); }}
+                        onClick={() => { if(confirm("Are you sure you want to delete all events?")) onDeleteAllEvents(); }}
                         className="text-[10px] text-rose-400 hover:text-rose-300 cursor-pointer"
                       >
-                        حذف همه
+                        Delete All
                       </button>
                     </div>
                   )}
@@ -776,8 +776,8 @@ export default function CalendarWidget({
                 {events.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 bg-white/[0.01] border border-dashed border-white/5 rounded-xl text-center">
                     <AlertCircle className="w-8 h-8 text-gray-500 mb-2" />
-                    <span className="text-xs text-gray-400">برنامه‌ای برای نمایش وجود ندارد</span>
-                    <span className="text-[9px] text-gray-500 mt-1">یک روز را در تقویم انتخاب کنید تا برنامه مطالعاتی بسازید</span>
+                    <span className="text-xs text-gray-400">No events to display</span>
+                    <span className="text-[9px] text-gray-500 mt-1">یک Day را در Calendar انتخاب کنید تا برنامه مطالعاتی بسازید</span>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -816,7 +816,7 @@ export default function CalendarWidget({
                           <button
                             onClick={() => handleDeleteEvent(ev.id)}
                             className="p-1 hover:bg-rose-500/10 rounded-lg text-gray-400 hover:text-rose-400 cursor-pointer self-start transition-colors"
-                            title="حذف برنامه"
+                            title="Delete Event"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -842,9 +842,9 @@ export default function CalendarWidget({
               </div>
 
               <div>
-                <h4 className="text-sm font-bold text-white mb-1">همگام‌سازی مستقیم با گوگل کلندر</h4>
+                <h4 className="text-sm font-bold text-white mb-1">Sync Directly with Google Calendar</h4>
                 <p className="text-xs text-gray-400 leading-relaxed max-w-sm mx-auto">
-                  برنامه‌های مطالعاتی، امتحانات و اوقات فراغت خود را مستقیماً با تقویم گوگل تلفن همراه و دسکتاپ خود هماهنگ کنید.
+                  Events for مطالعاتی، امتحانات و اوقات فراغت خود را مستقیماً با Calendar گوگل تلفن همراه و دسکتاپ خود هMonthنگ کنید.
                 </p>
               </div>
 
@@ -852,7 +852,7 @@ export default function CalendarWidget({
                 <div className="space-y-3">
                   <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-center gap-2 mx-auto max-w-xs">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs text-emerald-300 font-medium">گوگل کلندر با موفقیت متصل شد</span>
+                    <span className="text-xs text-emerald-300 font-medium">Google Calendar successfully connected</span>
                   </div>
                   <div className="flex gap-2 justify-center">
                     <button
@@ -860,18 +860,18 @@ export default function CalendarWidget({
                         setGcalSyncLoading(true);
                         setTimeout(() => {
                           setGcalSyncLoading(false);
-                          alert("برنامه‌ها با موفقیت همگام‌سازی شدند!");
+                          alert("Events synced successfully!");
                         }, 1200);
                       }}
                       className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${gcalSyncLoading ? "animate-spin" : ""}`} /> بروزرسانی مجدد
+                      <RefreshCw className={`w-3.5 h-3.5 ${gcalSyncLoading ? "animate-spin" : ""}`} /> بDayرسانی مجدد
                     </button>
                     <button
                       onClick={() => setIsGCalConnected(false)}
                       className="px-4 py-2 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-semibold transition-all cursor-pointer"
                     >
-                      قطع اتصال
+                      Disconnect
                     </button>
                   </div>
                 </div>
@@ -897,14 +897,14 @@ export default function CalendarWidget({
                           <path d="M7.44 13.94c-.16-.48-.25-1-.25-1.54s.09-1.06.25-1.54V8.3H4.2C3.58 9.55 3.2 11 3.2 12.5s.38 2.95 1 4.2l3.24-2.52z" fill="#FBBC05"/>
                           <path d="M12 6.1c1.32 0 2.5.45 3.44 1.35l2.58-2.58C16.47 3.32 14.43 2.5 12 2.5 8.6 2.5 5.7 4.6 4.2 7.15l3.24 2.54c.64-1.93 2.44-3.36 4.56-3.36z" fill="#EA4335"/>
                         </svg>
-                        اتصال به حساب گوگل
+                        Connect to Google Account
                       </>
                     )}
                   </button>
                   
                   {/* ICS Fallback instruction */}
                   <div className="border-t border-white/5 pt-3 max-w-xs mx-auto">
-                    <span className="text-[10px] text-gray-500 block mb-1">اتصال خودکار مقدور نیست؟</span>
+                    <span className="text-[10px] text-gray-500 block mb-1">Auto-connect not possible?</span>
                     <button
                       onClick={handleExportICS}
                       disabled={events.length === 0}
@@ -912,7 +912,7 @@ export default function CalendarWidget({
                         events.length > 0 ? "text-sky-400 hover:text-sky-300 cursor-pointer" : "text-gray-600 cursor-not-allowed"
                       }`}
                     >
-                      <Download className="w-3 h-3" /> دانلود تقویم (.ics) و ایمپورت دستی در گوگل
+                      <Download className="w-3 h-3" /> Download Calendar (.ics) و ایمپورت دستی در گوگل
                     </button>
                   </div>
                 </div>
@@ -934,7 +934,7 @@ export default function CalendarWidget({
           >
             <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-4">
               <span className="text-xs font-bold text-white font-sans">
-                افزودن برنامه برای {toPersianNum(selectedDay.j.split("-")[2])} {shamsiMonths[parseInt(selectedDay.j.split("-")[1]) - 1]} {toPersianNum(selectedDay.j.split("-")[0])}
+                Add Event for {toPersianNum(selectedDay.j.split("-")[2])} {shamsiMonths[parseInt(selectedDay.j.split("-")[1]) - 1]} {toPersianNum(selectedDay.j.split("-")[0])}
               </span>
               <button 
                 type="button"
@@ -947,11 +947,11 @@ export default function CalendarWidget({
 
             <form onSubmit={handleAddEvent} className="space-y-3.5">
               <div>
-                <label className="text-[9px] text-gray-400 uppercase block mb-1">عنوان برنامه مطالعاتی</label>
+                <label className="text-[9px] text-gray-400 uppercase block mb-1">Study Plan Title</label>
                 <input
                   type="text"
                   required
-                  placeholder="مثال: مرور فصل ۳ هندسه یا زیست‌شناسی"
+                  placeholder="Example: Review Geometry Chapter 3 or Biology"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-400 font-sans"
@@ -960,19 +960,19 @@ export default function CalendarWidget({
 
               <div className="grid grid-cols-2 gap-3.5">
                 <div>
-                  <label className="text-[9px] text-gray-400 uppercase block mb-1">دسته‌بندی</label>
+                  <label className="text-[9px] text-gray-400 uppercase block mb-1">Category</label>
                   <select
                     value={newEventCategory}
                     onChange={(e) => setNewEventCategory(e.target.value as any)}
                     className="w-full bg-neutral-900 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-sky-400"
                   >
-                    <option value="study">مطالعه (Study)</option>
-                    <option value="exam">امتحان (Exam)</option>
-                    <option value="personal">شخصی (Personal)</option>
+                    <option value="study">Study</option>
+                    <option value="exam">Exam</option>
+                    <option value="personal">Personal</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] text-gray-400 uppercase block mb-1">ساعت برگزاری (اختیاری)</label>
+                  <label className="text-[9px] text-gray-400 uppercase block mb-1">Time (Optional)</label>
                   <input
                     type="time"
                     value={newEventTime}
@@ -983,9 +983,9 @@ export default function CalendarWidget({
               </div>
 
               <div>
-                <label className="text-[9px] text-gray-400 uppercase block mb-1">توضیحات و یادداشت</label>
+                <label className="text-[9px] text-gray-400 uppercase block mb-1">Description & Notes</label>
                 <textarea
-                  placeholder="نکات کلیدی، فصل‌های مورد مطالعه، تمرین‌ها و غیره..."
+                  placeholder="Key points, chapters to study, exercises, etc..."
                   value={newEventNotes}
                   rows={3}
                   onChange={(e) => setNewEventNotes(e.target.value)}
@@ -997,7 +997,7 @@ export default function CalendarWidget({
                 type="submit"
                 className="w-full py-2.5 bg-sky-500 hover:bg-sky-400 text-neutral-950 font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer"
               >
-                ثبت در تقویم 🌟
+                Save to Calendar 🌟
               </button>
             </form>
           </motion.div>
@@ -1019,7 +1019,7 @@ export default function CalendarWidget({
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M21.35 11.1H12v2.7h5.3c-.23 1.25-.94 2.29-2 2.96v2.46h3.2c1.9-1.76 3-4.35 3-7.12 0-.6-.05-1.2-.15-1.66z" fill="currentColor"/>
             </svg>
-            گوگل کلندر
+            Google Calendar
           </button>
 
           {/* Tab 2: Calendar (In image, it is on the right) */}
@@ -1032,7 +1032,7 @@ export default function CalendarWidget({
             }`}
           >
             <CalendarIcon className="w-3.5 h-3.5" />
-            تقویم
+            Calendar
           </button>
         </div>
       </div>
