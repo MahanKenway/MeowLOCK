@@ -51,6 +51,7 @@ import {
   CustomCalendarEvent
 } from "./types";
 import DataHubWidget from "./components/DataHubWidget";
+import { preloadAppAssets } from "./utils/preloader";
 
 // --- INDEXEDDB HELPER FOR PERSISTING LOCAL CUSTOM BACKGROUND FILES ---
 const DB_NAME = "flocus_bg_db";
@@ -151,111 +152,111 @@ import CatCompanion from "./components/CatCompanion";
 const presetBgs = [
   {
     name: "Setareh Study Mode",
-    url: "/src/assets/images/setareh_pixel_study_v2_1783524583594.jpg"
+    url: "./images/setareh_pixel_study_v2_1783524583594.jpg"
   },
   {
     name: "Setareh Coding Mode",
-    url: "/src/assets/images/setareh_pixel_coding_v2_1783524546639.jpg"
+    url: "./images/setareh_pixel_coding_v2_1783524546639.jpg"
   },
   {
     name: "Setareh Relax Mode",
-    url: "/src/assets/images/setareh_pixel_relax_v2_1783524564086.jpg"
+    url: "./images/setareh_pixel_relax_v2_1783524564086.jpg"
   },
   {
     name: "Rainy Cyber Cafe",
-    url: "/src/assets/images/pixel_rainy_cafe_v1_1783524939912.jpg"
+    url: "./images/pixel_rainy_cafe_v1_1783524939912.jpg"
   },
   {
     name: "Snowy Cabin",
-    url: "/src/assets/images/pixel_snowy_cabin_v1_1783524959716.jpg"
+    url: "./images/pixel_snowy_cabin_v1_1783524959716.jpg"
   },
   {
     name: "Sunset Subway",
-    url: "/src/assets/images/pixel_sunset_subway_v1_1783524979144.jpg"
+    url: "./images/pixel_sunset_subway_v1_1783524979144.jpg"
   },
   {
     name: "Twilight Rooftop",
-    url: "/src/assets/images/pixel_rooftop_twilight_1_1783526707514.jpg"
+    url: "./images/pixel_rooftop_twilight_1_1783526707514.jpg"
   },
   {
     name: "Retro Arcade",
-    url: "/src/assets/images/pixel_retro_arcade_1_1783526723869.jpg"
+    url: "./images/pixel_retro_arcade_1_1783526723869.jpg"
   },
   {
     name: "Rainy Greenhouse",
-    url: "/src/assets/images/pixel_greenhouse_rain_1_1783526740989.jpg"
+    url: "./images/pixel_greenhouse_rain_1_1783526740989.jpg"
   },
   {
     name: "Magical Library",
-    url: "/src/assets/images/pixel_magic_library_1_1783526856865.jpg"
+    url: "./images/pixel_magic_library_1_1783526856865.jpg"
   },
   {
     name: "Underwater Room",
-    url: "/src/assets/images/pixel_underwater_room_1_1783526880519.jpg"
+    url: "./images/pixel_underwater_room_1_1783526880519.jpg"
   },
   {
     name: "Midnight Laundromat",
-    url: "/src/assets/images/pixel_laundromat_night_1_1783526896576.jpg"
+    url: "./images/pixel_laundromat_night_1_1783526896576.jpg"
   },
   {
     name: "Autumn Treehouse",
-    url: "/src/assets/images/pixel_autumn_treehouse_1783526999098.jpg"
+    url: "./images/pixel_autumn_treehouse_1783526999098.jpg"
   },
   {
     name: "Space Station",
-    url: "/src/assets/images/pixel_space_station_1783527015716.jpg"
+    url: "./images/pixel_space_station_1783527015716.jpg"
   },
   {
     name: "Zen Garden",
-    url: "/src/assets/images/pixel_zen_garden_1783527032340.jpg"
+    url: "./images/pixel_zen_garden_1783527032340.jpg"
   },
   {
     name: "Alternative Garage Studio",
-    url: "/src/assets/images/garage_pixel_art_1783441014712.jpg"
+    url: "./images/garage_pixel_art_1783441014712.jpg"
   },
   {
     name: "Alternative Desk Study",
-    url: "/src/assets/images/study_girl_1_1783458443182.jpg"
+    url: "./images/study_girl_1_1783458443182.jpg"
   },
   {
     name: "Alternative Room Study",
-    url: "/src/assets/images/study_girl_2_1783458463989.jpg"
+    url: "./images/study_girl_2_1783458463989.jpg"
   },
   {
     name: "Cozy Study Corner",
-    url: "/src/assets/images/pixel_study_corner_1783255382430.jpg"
+    url: "./images/pixel_study_corner_1783255382430.jpg"
   },
   {
     name: "Cozy Rain Cafe",
-    url: "/src/assets/images/pixel_rain_cafe_1783255402157.jpg"
+    url: "./images/pixel_rain_cafe_1783255402157.jpg"
   },
   {
     name: "Cyberpunk Study Terminal",
-    url: "/src/assets/images/pixel_cyberpunk_terminal_1783255416278.jpg"
+    url: "./images/pixel_cyberpunk_terminal_1783255416278.jpg"
   },
   {
     name: "Peaceful Misty Forest",
-    url: "/src/assets/images/pixel_misty_forest_1783255428671.jpg"
+    url: "./images/pixel_misty_forest_1783255428671.jpg"
   },
   {
     name: "Cozy Cabin Fireplace",
-    url: "/src/assets/images/pixel_cabin_fireplace_1783255440529.jpg"
+    url: "./images/pixel_cabin_fireplace_1783255440529.jpg"
   },
   {
     name: "Music Studio",
-    url: "/src/assets/images/pixel_music_studio_true_1783620947171.jpg"
+    url: "./images/pixel_music_studio_true_1783620947171.jpg"
   },
   {
     name: "Rainy Night Study",
-    url: "/src/assets/images/pixel_rainy_study_1783621791241.jpg"
+    url: "./images/pixel_rainy_study_1783621791241.jpg"
   },
   {
     name: "Peaceful Zen Garden",
-    url: "/src/assets/images/pixel_zen_garden_1783621805799.jpg"
+    url: "./images/pixel_zen_garden_1783621805799.jpg"
   },
   {
     name: "Quiet Magic Library",
-    url: "/src/assets/images/pixel_magic_library_1783621820640.jpg"
+    url: "./images/pixel_magic_library_1783621820640.jpg"
   }
 ];
 
@@ -296,7 +297,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Study Mode",
     themeId: "cozy",
-    bgUrl: "/src/assets/images/setareh_pixel_study_v2_1783524583594.jpg",
+    bgUrl: "./images/setareh_pixel_study_v2_1783524583594.jpg",
     blur: 8,
     overlay: 40,
     widgets: {
@@ -331,7 +332,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Coding Mode",
     themeId: "cyberpunk",
-    bgUrl: "/src/assets/images/setareh_pixel_coding_v2_1783524546639.jpg",
+    bgUrl: "./images/setareh_pixel_coding_v2_1783524546639.jpg",
     blur: 15,
     overlay: 65,
     widgets: {
@@ -366,7 +367,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Relax Mode",
     themeId: "ambient",
-    bgUrl: "/src/assets/images/setareh_pixel_relax_v2_1783524564086.jpg",
+    bgUrl: "./images/setareh_pixel_relax_v2_1783524564086.jpg",
     blur: 4,
     overlay: 25,
     widgets: {
@@ -976,6 +977,15 @@ export default function App() {
       setIsQuoteOpen(!!activeProfile.widgets.quote);
     }
   }, [activeProfile?.widgets, activeProfile?.name]);
+
+  // Preload critical assets and fonts progressively to eliminate switching flicker
+  useEffect(() => {
+    const initialBgUrl = activeProfile?.bgUrl;
+    preloadAppAssets({
+      activeBgUrl: initialBgUrl,
+      activeFontClass: clockFontClass
+    }).catch(err => console.warn("Error preloading app assets:", err));
+  }, [activeProfile?.bgUrl, clockFontClass]);
 
   const handleSelectProfile = (name: string) => {
     setCurrentProfileName(name);
