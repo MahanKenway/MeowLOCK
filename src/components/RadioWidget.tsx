@@ -831,7 +831,7 @@ export default function RadioWidget({
                         }`}>
                           {station.favicon ? (
                             <img 
-                              src={station.favicon || undefined} 
+                              src={station.favicon ? station.favicon.replace(/^http:\/\//i, "https://") : undefined} 
                               alt="" 
                               className="w-full h-full object-cover"
                               onError={(e) => { e.currentTarget.style.display = "none"; }}

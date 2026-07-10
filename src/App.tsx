@@ -1939,7 +1939,7 @@ export default function App() {
                     }`}
                   >
                     <img
-                      src={preset.url}
+                      src={getImageUrl(preset.url)}
                       alt={preset.name}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
