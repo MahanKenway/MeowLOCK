@@ -1,0 +1,6 @@
+{
+  "name": "MeowLOCK - Custom Focus Workspace",
+  "description": "An aesthetic, fully customizable focus workspace with Pomodoro, Stopwatch, organic ambient sounds synthesizer, AI study assistant, and generative AI backgrounds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

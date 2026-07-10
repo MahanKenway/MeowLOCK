@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@400;700&family=DM+Serif+Display&family=Inter:wght@100;200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@100;200;300;400;500&family=Lobster&family=Outfit:wght@100;200;300;400;500;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Share+Tech+Mono&family=Syne:wght@400;700;800&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Audiowide&family=Comfortaa:wght@400;700&family=Creepster&family=DotGothic16&family=Kablammo&family=Londrina+Outline&family=Major+Mono+Display&family=Monoton&family=Pacifico&family=Press+Start+2P&family=Righteous&family=Rubik+Glitch&family=Sacramento&family=Sedgwick+Ave&family=Silkscreen&family=Special+Elite&family=UnifrakturMaguntia&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --font-clock-outfit: "Outfit", sans-serif;
+  --font-clock-playfair: "Playfair Display", serif;
+  --font-clock-sharetech: "Share Tech Mono", monospace;
+  --font-clock-syne: "Syne", sans-serif;
+  --font-clock-cinzel: "Cinzel", serif;
+  --font-clock-vt323: "VT323", monospace;
+  --font-clock-bebas: "Bebas Neue", sans-serif;
+  --font-clock-lobster: "Lobster", cursive;
+  --font-clock-dm: "DM Serif Display", serif;
+  --font-clock-mono: "JetBrains Mono", monospace;
+  --font-clock-inter: "Inter", sans-serif;
+  
+  /* Additional Expressive Fonts */
+  --font-clock-righteous: "Righteous", sans-serif;
+  --font-clock-unifraktur: "UnifrakturMaguntia", serif;
+  --font-clock-sacramento: "Sacramento", cursive;
+  --font-clock-monoton: "Monoton", sans-serif;
+  --font-clock-pacifico: "Pacifico", cursive;
+  --font-clock-silkscreen: "Silkscreen", sans-serif;
+  --font-clock-comfortaa: "Comfortaa", sans-serif;
+  --font-clock-abril: "Abril Fatface", serif;
+  --font-clock-creepster: "Creepster", system-ui;
+  --font-clock-pressstart: "Press Start 2P", system-ui;
+  --font-clock-audiowide: "Audiowide", sans-serif;
+  --font-clock-architects: "Architects Daughter", cursive;
+  --font-clock-sedgwick: "Sedgwick Ave", cursive;
+  --font-clock-majormono: "Major Mono Display", monospace;
+  --font-clock-specialelite: "Special Elite", monospace;
+  --font-clock-londrina: "Londrina Outline", sans-serif;
+  --font-clock-dotgothic: "DotGothic16", sans-serif;
+  --font-clock-kablammo: "Kablammo", system-ui;
+  --font-clock-rubikglitch: "Rubik Glitch", system-ui;
+}
+
+/* Custom styles for hide scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth transition animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-scale-up {
+  animation: scaleUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-slide-up {
+  animation: slideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Elegant glass-compatible Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  transition: background 0.2s;
+}
+[data-theme="glass-light"] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+[data-theme="glass-light"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
