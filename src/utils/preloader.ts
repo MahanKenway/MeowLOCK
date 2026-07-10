@@ -1,7 +1,7 @@
 import { getImageUrl } from './imageLoader';
 
 /**
- * High-performance progressive pre-caching mechanism for Workspace Studio.
+ * High-performance progressive pre-caching mechanism for MeowLOCK.
  * Preloads pixel-art backgrounds and expressive typography fonts in a non-blocking sequence,
  * preventing layout shift, flash of unstyled text (FOUT), and mode-switching visual flicker.
  */

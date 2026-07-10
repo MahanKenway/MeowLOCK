@@ -1576,7 +1576,7 @@ export default function App() {
               <div className="w-8 h-8 rounded-full bg-[#7c3aed]/20 flex items-center justify-center">
                 <Sliders className="w-4 h-4 text-[#7c3aed]" />
               </div>
-              <h2 className="font-sans font-bold text-lg text-white tracking-tight">Workspace Studio</h2>
+              <h2 className="font-sans font-bold text-lg text-white tracking-tight">MeowLOCK</h2>
             </div>
             <button
               onClick={() => setIsSidebarOpen(false)}
@@ -2895,7 +2895,7 @@ export default function App() {
         <button
           onClick={() => setIsSidebarOpen(true)}
           className="p-2 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-          title="Workspace Studio Config"
+          title="MeowLOCK Config"
         >
           <Settings className="w-4 h-4" />
         </button>
