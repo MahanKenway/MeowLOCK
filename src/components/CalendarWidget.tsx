@@ -365,10 +365,10 @@ export default function CalendarWidget({
   const handleExportICS = () => {
     if (events.length === 0) return;
     
-    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AI Studio Build//Study Planner//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//MeowLOCK//Study Planner//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
     
     events.forEach(ev => {
-      const uid = ev.id || `study-event-${Math.random().toString(36).substring(2, 9)}@aistudio.com`;
+      const uid = ev.id || `study-event-${Math.random().toString(36).substring(2, 9)}@meowlock.com`;
       const dateClean = ev.dateStr.replace(/-/g, "");
       
       let startTime = "090000";
