@@ -50,6 +50,7 @@ import {
   FocusQuote,
   CustomCalendarEvent
 } from "./types";
+import DataHubWidget from "./components/DataHubWidget";
 
 // --- INDEXEDDB HELPER FOR PERSISTING LOCAL CUSTOM BACKGROUND FILES ---
 const DB_NAME = "flocus_bg_db";
@@ -537,6 +538,129 @@ export default function App() {
   const handleNasaKeyChange = (val: string) => {
     setNasaKey(val);
     localStorage.setItem("NASA_API_KEY", val);
+  };
+
+  const handleImportAllData = (data: any) => {
+    if (!data) return;
+    
+    // Update individual state variables
+    if (data.username !== undefined) {
+      setUsername(data.username);
+      localStorage.setItem("focus_username", data.username);
+    }
+    if (data.clockFontClass !== undefined) {
+      setClockFontClass(data.clockFontClass);
+      localStorage.setItem("focus_clock_font", data.clockFontClass);
+    }
+    if (data.clockSize !== undefined) {
+      setClockSize(data.clockSize);
+      localStorage.setItem("focus_clock_size", data.clockSize.toString());
+    }
+    if (data.customAccentColor !== undefined) {
+      setCustomAccentColor(data.customAccentColor);
+      localStorage.setItem("focus_custom_accent", data.customAccentColor);
+    }
+    if (data.glassOpacity !== undefined) {
+      setGlassOpacity(data.glassOpacity);
+      localStorage.setItem("focus_glass_opacity", data.glassOpacity.toString());
+    }
+    if (data.windowRoundness !== undefined) {
+      setWindowRoundness(data.windowRoundness);
+      localStorage.setItem("focus_window_roundness", data.windowRoundness.toString());
+    }
+    if (data.showSeconds !== undefined) {
+      setShowSeconds(data.showSeconds);
+      localStorage.setItem("focus_show_seconds", data.showSeconds.toString());
+    }
+    if (data.showGreeting !== undefined) {
+      setShowGreeting(data.showGreeting);
+      localStorage.setItem("focus_show_greeting", data.showGreeting.toString());
+    }
+    if (data.showDate !== undefined) {
+      setShowDate(data.showDate);
+      localStorage.setItem("focus_show_date", data.showDate.toString());
+    }
+    if (data.clockColor !== undefined) {
+      setClockColor(data.clockColor);
+      localStorage.setItem("focus_clock_color", data.clockColor);
+    }
+    if (data.textSize !== undefined) {
+      setTextSize(data.textSize);
+      localStorage.setItem("zen_text_size", data.textSize);
+    }
+    
+    if (data.profiles !== undefined) {
+      setProfiles(data.profiles);
+      localStorage.setItem("focus_profiles", JSON.stringify(data.profiles));
+    }
+    if (data.currentProfileName !== undefined) {
+      setCurrentProfileName(data.currentProfileName);
+      localStorage.setItem("focus_active_profile", data.currentProfileName);
+    }
+    if (data.tasks !== undefined) {
+      setTasks(data.tasks);
+      localStorage.setItem("focus_tasks", JSON.stringify(data.tasks));
+    }
+    if (data.calendarEvents !== undefined) {
+      setCalendarEvents(data.calendarEvents);
+      localStorage.setItem("calendar_events", JSON.stringify(data.calendarEvents));
+    }
+    if (data.focusHistory !== undefined) {
+      setFocusHistory(data.focusHistory);
+      localStorage.setItem("focus_history", JSON.stringify(data.focusHistory));
+    }
+
+    if (data.geminiKey !== undefined) {
+      setGeminiKey(data.geminiKey);
+      localStorage.setItem("GEMINI_API_KEY", data.geminiKey);
+    }
+    if (data.nasaKey !== undefined) {
+      setNasaKey(data.nasaKey);
+      localStorage.setItem("NASA_API_KEY", data.nasaKey);
+    }
+  };
+
+  const handleResetAllData = () => {
+    // Clear localStorage keys
+    const keysToRemove = [
+      "focus_username",
+      "focus_clock_font",
+      "focus_clock_size",
+      "focus_custom_accent",
+      "focus_glass_opacity",
+      "focus_window_roundness",
+      "focus_show_seconds",
+      "focus_show_greeting",
+      "focus_show_date",
+      "focus_clock_color",
+      "zen_text_size",
+      "focus_profiles",
+      "focus_active_profile",
+      "focus_tasks",
+      "focus_active_task_id",
+      "calendar_events",
+      "focus_history"
+    ];
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+    // Reset React state variables
+    setUsername("Focus User");
+    setClockFontClass("font-clock-outfit");
+    setClockSize(120);
+    setCustomAccentColor("#7c3aed");
+    setGlassOpacity(50);
+    setWindowRoundness(16);
+    setShowSeconds(true);
+    setShowGreeting(true);
+    setShowDate(true);
+    setClockColor("white");
+    setTextSize("base");
+    setProfiles(initialProfiles);
+    setCurrentProfileName("Study Mode");
+    setTasks([]);
+    setActiveTaskId(null);
+    setCalendarEvents([]);
+    setFocusHistory([]);
   };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1915,6 +2039,30 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Data Storage & Transfer Hub */}
+          <div className="pt-5 border-t border-white/5">
+            <DataHubWidget
+              username={username}
+              clockFontClass={clockFontClass}
+              clockSize={clockSize}
+              customAccentColor={customAccentColor}
+              glassOpacity={glassOpacity}
+              windowRoundness={windowRoundness}
+              showSeconds={showSeconds}
+              showGreeting={showGreeting}
+              showDate={showDate}
+              clockColor={clockColor}
+              textSize={textSize}
+              profiles={profiles}
+              currentProfileName={currentProfileName}
+              tasks={tasks}
+              calendarEvents={calendarEvents}
+              focusHistory={focusHistory}
+              onImportAll={handleImportAllData}
+              onResetAll={handleResetAllData}
+            />
           </div>
 
           {/* API Keys Configuration */}

@@ -1,0 +1,67 @@
+# GitHub Actions workflow to build and deploy the React application to GitHub Pages
+name: Deploy Workspace Studio to GitHub Pages
+
+on:
+  # Automatically run on pushes to main or master branch
+  push:
+    branches:
+      - main
+      - master
+  
+  # Allow manual trigger from the GitHub Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Avoid concurrent deployments to prevent conflicting states
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build Production Assets
+        run: npm run build
+        env:
+          # Prevent CI from failing on warnings if needed
+          CI: false
+
+      - name: Configure GitHub Pages Settings
+        uses: actions/configure-pages@v5
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Vite outputs all client-side production files directly into the dist directory
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
