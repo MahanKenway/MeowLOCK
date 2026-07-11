@@ -213,6 +213,45 @@ const resolveAssetPath = (path: string): string => {
   return `${base}${cleanPath}`;
 };
 
+// --- PIXEL ART GHOST LOGO ---
+const PixelGhost = ({ className = "w-8 h-8" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 12 12"
+    className={`${className} text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]`}
+    style={{ imageRendering: "pixelated" }}
+  >
+    {/* Ghost Body */}
+    <g fill="currentColor">
+      <rect x="4" y="0" width="4" height="1" />
+      <rect x="2" y="1" width="8" height="1" />
+      <rect x="1" y="2" width="10" height="1" />
+      <rect x="0" y="3" width="12" height="1" />
+      <rect x="0" y="4" width="12" height="1" />
+      <rect x="0" y="5" width="12" height="1" />
+      <rect x="0" y="6" width="12" height="1" />
+      <rect x="0" y="7" width="12" height="1" />
+      <rect x="0" y="8" width="12" height="1" />
+      <rect x="0" y="9" width="12" height="1" />
+      <rect x="0" y="10" width="12" height="1" />
+      <rect x="0" y="11" width="1" height="1" />
+      <rect x="2" y="11" width="2" height="1" />
+      <rect x="5" y="11" width="2" height="1" />
+      <rect x="8" y="11" width="2" height="1" />
+      <rect x="11" y="11" width="1" height="1" />
+    </g>
+    {/* Eyes (Glowing Cyan) */}
+    <g fill="#22d3ee">
+      <rect x="3" y="4" width="2" height="2" />
+      <rect x="7" y="4" width="2" height="2" />
+    </g>
+    {/* Pupils (Black) */}
+    <g fill="#000000">
+      <rect x="3" y="4" width="1" height="2" />
+      <rect x="7" y="4" width="1" height="2" />
+    </g>
+  </svg>
+);
+
 // Presets study room backdrops
 const presetBgs = [
   {
@@ -2209,11 +2248,14 @@ export default function App() {
       {/* --- MAIN HEADER BAR --- */}
       <header className="w-full z-30 px-8 py-6 flex items-start justify-between bg-transparent relative select-none">
         {/* Top-Left Branding */}
-        <div className="flex flex-col items-start gap-1">
-          <span className="font-sans font-black text-3xl tracking-tighter text-white leading-none">MeowLOCK</span>
-          <span className="font-clock-sacramento text-lg text-white/70 leading-none mt-1 select-none cursor-default capitalize">
-            To My Dear Star
-          </span>
+        <div className="flex items-center gap-3">
+          <PixelGhost className="w-9 h-9" />
+          <div className="flex flex-col items-start gap-1">
+            <span className="font-sans font-black text-3xl tracking-tighter text-white leading-none">MeowLOCK</span>
+            <span className="font-clock-sacramento text-lg text-white/70 leading-none mt-1 select-none cursor-default capitalize">
+              To My Dear Star
+            </span>
+          </div>
         </div>
 
         {/* Top-Right Background Info */}
