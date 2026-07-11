@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -153,12 +154,29 @@ const resolveAssetPath = (path: string): string => {
   if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
     return path;
   }
-  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
-  const baseUrl = (import.meta as any).env?.BASE_URL || "/";
+  
+  // Normalize legacy paths
+  let cleanPath = path;
+  if (cleanPath.includes("src/assets/images/")) {
+    cleanPath = cleanPath.slice(cleanPath.indexOf("src/assets/images/") + "src/assets/images/".length);
+    cleanPath = `images/${cleanPath}`;
+  } else if (cleanPath.includes("assets/images/")) {
+    cleanPath = cleanPath.slice(cleanPath.indexOf("assets/images/") + "assets/images/".length);
+    cleanPath = `images/${cleanPath}`;
+  }
+  
+  if (cleanPath.startsWith("/")) {
+    cleanPath = cleanPath.slice(1);
+  }
+  
+  // Statically resolvable BASE_URL for Vite
+  const baseUrl = import.meta.env.BASE_URL || "/";
   if (baseUrl === "./") {
     return `./${cleanPath}`;
   }
-  return `${baseUrl}${cleanPath}`;
+  
+  const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return `${base}${cleanPath}`;
 };
 
 // Presets study room backdrops
