@@ -147,6 +147,20 @@ import WellnessWidget from "./components/WellnessWidget";
 import SpaceExplorer from "./components/SpaceExplorer";
 import CatCompanion from "./components/CatCompanion";
 
+// --- PATH RESOLUTION HELPER FOR GITHUB PAGES ---
+const resolveAssetPath = (path: string): string => {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+    return path;
+  }
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  const baseUrl = (import.meta as any).env?.BASE_URL || "/";
+  if (baseUrl === "./") {
+    return `./${cleanPath}`;
+  }
+  return `${baseUrl}${cleanPath}`;
+};
+
 // Presets study room backdrops
 const presetBgs = [
   {
@@ -1075,7 +1089,7 @@ export default function App() {
   const standardBgUrl = isLocal ? (localBgUrl || "") : activeProfile.bgUrl;
   const rawBgUrlToRender = nasaBgUrl ? nasaBgUrl : standardBgUrl;
   const bgUrlToRender = rawBgUrlToRender
-    ? rawBgUrlToRender.replace(/^http:\/\//i, "https://")
+    ? resolveAssetPath(rawBgUrlToRender.replace(/^http:\/\//i, "https://"))
     : "";
   
   const isNonLocalVideo = activeProfile.bgUrl && (
@@ -1928,7 +1942,7 @@ export default function App() {
                     }`}
                   >
                     <img
-                      src={preset.url}
+                      src={resolveAssetPath(preset.url)}
                       alt={preset.name}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
