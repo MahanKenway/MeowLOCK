@@ -51,7 +51,6 @@ import {
   CustomCalendarEvent
 } from "./types";
 import DataHubWidget from "./components/DataHubWidget";
-import { preloadAppAssets } from "./utils/preloader";
 import { getImageUrl } from "./utils/imageLoader";
 
 // --- INDEXEDDB HELPER FOR PERSISTING LOCAL CUSTOM BACKGROUND FILES ---
@@ -906,6 +905,26 @@ export default function App() {
     localStorage.setItem("focus_profiles", JSON.stringify(profiles));
   }, [profiles]);
 
+  // One-time startup check: self-heals/sanitizes any stale background URLs from older versions or cached localStorage
+  useEffect(() => {
+    setProfiles((prev) =>
+      prev.map((p) => {
+        if (!p.bgUrl || p.bgUrl === "custom_local" || p.bgUrl.startsWith("http") || p.bgUrl.startsWith("data:") || p.bgUrl.startsWith("blob:")) {
+          return p;
+        }
+        // Run getImageUrl to clean up and map to valid stock image path
+        const resolved = getImageUrl(p.bgUrl);
+        // Extract the local/repo relative filename
+        const filename = resolved.split('/').pop() || "";
+        const relativeUrl = `./images/${filename}`;
+        if (p.bgUrl !== relativeUrl) {
+          return { ...p, bgUrl: relativeUrl };
+        }
+        return p;
+      })
+    );
+  }, []);
+
   useEffect(() => {
     localStorage.setItem("focus_active_profile", currentProfileName);
   }, [currentProfileName]);
@@ -978,15 +997,6 @@ export default function App() {
       setIsQuoteOpen(!!activeProfile.widgets.quote);
     }
   }, [activeProfile?.widgets, activeProfile?.name]);
-
-  // Preload critical assets and fonts progressively to eliminate switching flicker
-  useEffect(() => {
-    const initialBgUrl = activeProfile?.bgUrl;
-    preloadAppAssets({
-      activeBgUrl: initialBgUrl,
-      activeFontClass: clockFontClass
-    }).catch(err => console.warn("Error preloading app assets:", err));
-  }, [activeProfile?.bgUrl, clockFontClass]);
 
   const handleSelectProfile = (name: string) => {
     setCurrentProfileName(name);
@@ -1941,7 +1951,7 @@ export default function App() {
                     <img
                       src={getImageUrl(preset.url)}
                       alt={preset.name}
-                      referrerPolicy="no-referrer"
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/40 flex items-end p-1">

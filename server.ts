@@ -11,6 +11,9 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
+// Serve the public directory directly from Express to guarantee static assets (images, etc.) are always accessible
+app.use(express.static(path.join(process.cwd(), "public")));
+
 // Lazy initialize Gemini AI with safe guards
 const apiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;

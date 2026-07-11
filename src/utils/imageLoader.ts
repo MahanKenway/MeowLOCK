@@ -1,70 +1,127 @@
-const images = import.meta.glob<{ default: string }>('../assets/images/*.jpg', { eager: true });
-
 /**
- * Given a path, filename, legacy url, or hashed url,
- * resolves it dynamically to the current build's bundled asset URL,
- * or falls back to a clean public/images path.
- * This completely heals any old hashed URLs stored in the user's localStorage!
+ * Stable, high-reliability image asset URL resolver for MeowLOCK.
+ * Bypasses relative Vite asset bundling/hashing and resolves all assets
+ * to absolute URLs pointing to the public folder.
+ * This completely immunizes the application from the classic GitHub Pages
+ * missing-trailing-slash bug and heals stale hashed/timestamped URLs in localStorage!
  */
+
+const ACTUAL_FILES = [
+  "alt_girl_guitar_1783522640792.jpg",
+  "alt_girl_mcr_1783522601327.jpg",
+  "alt_girl_silverstein_1783522621638.jpg",
+  "cat_guitar_pixel_1783708296051.jpg",
+  "garage_pixel_art_1783441014712.jpg",
+  "pixel_autumn_treehouse_1783526999098.jpg",
+  "pixel_cabin_fireplace_1783255440529.jpg",
+  "pixel_cyberpunk_terminal_1783255416278.jpg",
+  "pixel_greenhouse_rain_1_1783526740989.jpg",
+  "pixel_laundromat_night_1_1783526896576.jpg",
+  "pixel_magic_library_1783621820640.jpg",
+  "pixel_magic_library_1_1783526856865.jpg",
+  "pixel_misty_forest_1783255428671.jpg",
+  "pixel_music_studio_true_1783620947171.jpg",
+  "pixel_rain_cafe_1783255402157.jpg",
+  "pixel_rainy_cafe_v1_1783524939912.jpg",
+  "pixel_rainy_study_1783621791241.jpg",
+  "pixel_retro_arcade_1_1783526723869.jpg",
+  "pixel_rooftop_twilight_1_1783526707514.jpg",
+  "pixel_snowy_cabin_v1_1783524959716.jpg",
+  "pixel_space_station_1783527015716.jpg",
+  "pixel_study_corner_1783255382430.jpg",
+  "pixel_sunset_subway_v1_1783524979144.jpg",
+  "pixel_underwater_room_1_1783526880519.jpg",
+  "pixel_zen_garden_1783527032340.jpg",
+  "pixel_zen_garden_1783621805799.jpg",
+  "setareh_pixel_coding_v2_1783524546639.jpg",
+  "setareh_pixel_relax_v2_1783524564086.jpg",
+  "setareh_pixel_study_v2_1783524583594.jpg",
+  "study_girl_1_1783458443182.jpg",
+  "study_girl_2_1783458463989.jpg"
+];
+
+const getCleanBaseName = (file: string): string => {
+  let name = file.toLowerCase();
+  // Strip extension
+  const dotIndex = name.lastIndexOf('.');
+  if (dotIndex !== -1) {
+    name = name.substring(0, dotIndex);
+  }
+  // Strip trailing hash/timestamp suffix like _1783524583594 or -Cqy6kx94
+  // Remove 8-char Vite-style hash (e.g. -cqy6kx94)
+  name = name.replace(/-[a-z0-9]{8}$/i, '');
+  // Remove 10-15 digit timestamp (e.g. _1783524583594 or -1783524583594)
+  name = name.replace(/[-_]\d{10,15}$/, '');
+  return name;
+};
+
 export const getImageUrl = (pathOrUrl: string): string => {
   if (!pathOrUrl) return "";
 
-  // 1. If it's a data URL, blob, or an external HTTP/S URL (not from our assets folder or localhost), return it.
+  // 1. If it's a data URL, blob, or an external HTTP/S URL, return it as is.
   if (pathOrUrl.startsWith('data:') || pathOrUrl.startsWith('blob:')) {
     return pathOrUrl;
   }
 
+  // If it is a true external URL, return it
   const isHttp = pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
   const isInternalAsset = isHttp && (pathOrUrl.includes('/assets/') || pathOrUrl.includes('/images/'));
 
   if (isHttp && !isInternalAsset) {
-    // True external HTTP URL, return as is
     return pathOrUrl;
   }
 
-  // 2. Extract and sanitize the filename
+  // 2. Extract just the filename and sanitize it
   let filename = pathOrUrl.split('/').pop() || "";
-  
-  // Clean query parameters or hashes in the filename
   filename = filename.split('?')[0].split('#')[0];
 
-  // Self-healing: Strip Vite build-time hashes (e.g., "filename-Cqy6kx94.jpg" -> "filename.jpg")
-  filename = filename.replace(/-[a-zA-Z0-9]{8}\.jpg$/i, '.jpg');
-  filename = filename.replace(/-[a-zA-Z0-9]{8}\.png$/i, '.png');
+  // Self-healing: Check for an exact filename match first to avoid colliding fallback paths
+  const exactMatch = ACTUAL_FILES.find(realFile => realFile.toLowerCase() === filename.toLowerCase());
+  let matchedRealFile = filename;
 
-  // 3. Look up the sanitized filename in Vite's compiled asset glob!
-  // This is extremely robust because Vite generates absolute, correct URLs relative to the base directory.
-  const matchKey = Object.keys(images).find(p => p.toLowerCase().endsWith(`/${filename.toLowerCase()}`));
-  if (matchKey) {
-    const imgModule = images[matchKey];
-    if (imgModule) {
-      if (typeof imgModule === 'object' && 'default' in imgModule) {
-        return imgModule.default;
-      }
-      if (typeof imgModule === 'string') {
-        return imgModule;
-      }
-    }
-  }
-
-  // 4. Fallback: If not found in the bundler glob, build a dynamically-resolved URL to the public folder.
-  let baseUrl = '';
-  try {
-    const metaUrl = import.meta.url;
-    if (metaUrl.includes('/assets/')) {
-      baseUrl = metaUrl.split('/assets/')[0];
-    } else if (metaUrl.includes('/src/')) {
-      baseUrl = metaUrl.split('/src/')[0];
+  if (exactMatch) {
+    matchedRealFile = exactMatch;
+  } else {
+    // If no exact match (e.g. from a slightly modified hashed URL), fallback to clean name matching
+    const cleanInput = getCleanBaseName(filename);
+    const matchedReal = ACTUAL_FILES.find(realFile => {
+      const cleanReal = getCleanBaseName(realFile);
+      return cleanReal === cleanInput;
+    });
+    
+    if (matchedReal) {
+      matchedRealFile = matchedReal;
     } else {
-      baseUrl = window.location.origin + window.location.pathname.replace(/\/?[^\/]*$/, '');
+      // CRITICAL FALLBACK: If the file is not found in ACTUAL_FILES at all, 
+      // fallback to the default background (Setareh Study Mode) to prevent a blank/broken black background!
+      matchedRealFile = "setareh_pixel_study_v2_1783524583594.jpg";
     }
+  }
+
+  // 3. Dynamically compute the root-relative Base URL supporting GitHub Pages, subdirectories, and standard hosting
+  let baseUrl = "/";
+  try {
+    let path = window.location.pathname;
+    
+    // Remove any ending filename (like index.html, main.html, etc.) to get the containing directory
+    if (/\/[^/]+\.[^/]+$/i.test(path)) {
+      path = path.substring(0, path.lastIndexOf('/'));
+    } else if (path.endsWith('/index.html') || path.endsWith('/index.htm')) {
+      path = path.substring(0, path.lastIndexOf('/'));
+    }
+    
+    // Ensure the base path starts with a leading slash and ends with a trailing slash
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
+    if (!path.endsWith('/')) {
+      path = path + '/';
+    }
+    
+    baseUrl = path;
   } catch (e) {
-    baseUrl = '';
+    baseUrl = "/";
   }
 
-  if (baseUrl && !baseUrl.endsWith('/')) {
-    baseUrl += '/';
-  }
-
-  return `${baseUrl}images/${filename}`;
+  return `${baseUrl}images/${matchedRealFile}`;
 };
