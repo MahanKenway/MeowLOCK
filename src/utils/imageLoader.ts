@@ -98,30 +98,40 @@ export const getImageUrl = (pathOrUrl: string): string => {
     }
   }
 
-  // 3. Dynamically compute the root-relative Base URL supporting GitHub Pages, subdirectories, and standard hosting
+  // 3. Dynamically resolve the absolute base path to ensure 100% compatibility 
+  // with GitHub Pages subdirectories (e.g. /repository-name/), custom subdirectories, 
+  // and root-level deployments (e.g. localhost, AI Studio preview, Vercel, Netlify).
   let baseUrl = "/";
   try {
-    let path = window.location.pathname;
+    const hostname = window.location.hostname;
+    const pathname = window.location.pathname;
     
-    // Remove any ending filename (like index.html, main.html, etc.) to get the containing directory
-    if (/\/[^/]+\.[^/]+$/i.test(path)) {
-      path = path.substring(0, path.lastIndexOf('/'));
-    } else if (path.endsWith('/index.html') || path.endsWith('/index.htm')) {
-      path = path.substring(0, path.lastIndexOf('/'));
+    if (hostname.endsWith('.github.io')) {
+      const segments = pathname.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        baseUrl = `/${segments[0]}/`;
+      }
+    } else if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('ais-dev') || hostname.includes('ais-pre')) {
+      // Always root-level for local development and AI Studio container environments
+      baseUrl = "/";
+    } else {
+      // For any other custom host, if it's deployed in a subdirectory, auto-detect it
+      const segments = pathname.split('/').filter(Boolean);
+      // If the last segment is a file, remove it
+      if (segments.length > 0 && /\.[a-z0-9]+$/i.test(segments[segments.length - 1])) {
+        segments.pop();
+      }
+      if (segments.length > 0) {
+        baseUrl = `/${segments.join('/')}/`;
+      }
     }
-    
-    // Ensure the base path starts with a leading slash and ends with a trailing slash
-    if (!path.startsWith('/')) {
-      path = '/' + path;
-    }
-    if (!path.endsWith('/')) {
-      path = path + '/';
-    }
-    
-    baseUrl = path;
   } catch (e) {
     baseUrl = "/";
   }
+
+  // Ensure baseUrl starts and ends with a slash
+  if (!baseUrl.startsWith('/')) baseUrl = '/' + baseUrl;
+  if (!baseUrl.endsWith('/')) baseUrl = baseUrl + '/';
 
   return `${baseUrl}images/${matchedRealFile}`;
 };
