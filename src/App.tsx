@@ -148,10 +148,44 @@ import WellnessWidget from "./components/WellnessWidget";
 import SpaceExplorer from "./components/SpaceExplorer";
 import CatCompanion from "./components/CatCompanion";
 
+// --- STATIC BACKGROUND IMAGE IMPORTS FOR ROBUST BUNDLING ---
+import bgSetarehStudy from "./assets/images/setareh_pixel_study_v2_1783524583594.jpg";
+import bgSetarehCoding from "./assets/images/setareh_pixel_coding_v2_1783524546639.jpg";
+import bgSetarehRelax from "./assets/images/setareh_pixel_relax_v2_1783524564086.jpg";
+import bgRainyCafe from "./assets/images/pixel_rainy_cafe_v1_1783524939912.jpg";
+import bgSnowyCabin from "./assets/images/pixel_snowy_cabin_v1_1783524959716.jpg";
+import bgSunsetSubway from "./assets/images/pixel_sunset_subway_v1_1783524979144.jpg";
+import bgRooftopTwilight from "./assets/images/pixel_rooftop_twilight_1_1783526707514.jpg";
+import bgRetroArcade from "./assets/images/pixel_retro_arcade_1_1783526723869.jpg";
+import bgGreenhouseRain from "./assets/images/pixel_greenhouse_rain_1_1783526740989.jpg";
+import bgMagicLibrary1 from "./assets/images/pixel_magic_library_1_1783526856865.jpg";
+import bgUnderwaterRoom from "./assets/images/pixel_underwater_room_1_1783526880519.jpg";
+import bgLaundromatNight from "./assets/images/pixel_laundromat_night_1_1783526896576.jpg";
+import bgAutumnTreehouse from "./assets/images/pixel_autumn_treehouse_1783526999098.jpg";
+import bgSpaceStation from "./assets/images/pixel_space_station_1783527015716.jpg";
+import bgZenGarden from "./assets/images/pixel_zen_garden_1783527032340.jpg";
+import bgGaragePixelArt from "./assets/images/garage_pixel_art_1783441014712.jpg";
+import bgStudyGirl1 from "./assets/images/study_girl_1_1783458443182.jpg";
+import bgStudyGirl2 from "./assets/images/study_girl_2_1783458463989.jpg";
+import bgStudyCorner from "./assets/images/pixel_study_corner_1783255382430.jpg";
+import bgRainCafe from "./assets/images/pixel_rain_cafe_1783255402157.jpg";
+import bgCyberpunkTerminal from "./assets/images/pixel_cyberpunk_terminal_1783255416278.jpg";
+import bgMistyForest from "./assets/images/pixel_misty_forest_1783255428671.jpg";
+import bgCabinFireplace from "./assets/images/pixel_cabin_fireplace_1783255440529.jpg";
+import bgMusicStudioTrue from "./assets/images/pixel_music_studio_true_1783620947171.jpg";
+import bgRainyStudy from "./assets/images/pixel_rainy_study_1783621791241.jpg";
+import bgZenGarden2 from "./assets/images/pixel_zen_garden_1783621805799.jpg";
+import bgMagicLibrary2 from "./assets/images/pixel_magic_library_1783621820640.jpg";
+
 // --- PATH RESOLUTION HELPER FOR GITHUB PAGES ---
 const resolveAssetPath = (path: string): string => {
   if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:") || path.startsWith("blob:")) {
+    return path;
+  }
+  
+  // If the path is already an absolute/relative URL or starts with base url
+  if (path.startsWith("/") || path.startsWith("./") || path.includes("/assets/")) {
     return path;
   }
   
@@ -183,111 +217,111 @@ const resolveAssetPath = (path: string): string => {
 const presetBgs = [
   {
     name: "Setareh Study Mode",
-    url: "images/setareh_pixel_study_v2_1783524583594.jpg"
+    url: bgSetarehStudy
   },
   {
     name: "Setareh Coding Mode",
-    url: "images/setareh_pixel_coding_v2_1783524546639.jpg"
+    url: bgSetarehCoding
   },
   {
     name: "Setareh Relax Mode",
-    url: "images/setareh_pixel_relax_v2_1783524564086.jpg"
+    url: bgSetarehRelax
   },
   {
     name: "Rainy Cyber Cafe",
-    url: "images/pixel_rainy_cafe_v1_1783524939912.jpg"
+    url: bgRainyCafe
   },
   {
     name: "Snowy Cabin",
-    url: "images/pixel_snowy_cabin_v1_1783524959716.jpg"
+    url: bgSnowyCabin
   },
   {
     name: "Sunset Subway",
-    url: "images/pixel_sunset_subway_v1_1783524979144.jpg"
+    url: bgSunsetSubway
   },
   {
     name: "Twilight Rooftop",
-    url: "images/pixel_rooftop_twilight_1_1783526707514.jpg"
+    url: bgRooftopTwilight
   },
   {
     name: "Retro Arcade",
-    url: "images/pixel_retro_arcade_1_1783526723869.jpg"
+    url: bgRetroArcade
   },
   {
     name: "Rainy Greenhouse",
-    url: "images/pixel_greenhouse_rain_1_1783526740989.jpg"
+    url: bgGreenhouseRain
   },
   {
     name: "Magical Library",
-    url: "images/pixel_magic_library_1_1783526856865.jpg"
+    url: bgMagicLibrary1
   },
   {
     name: "Underwater Room",
-    url: "images/pixel_underwater_room_1_1783526880519.jpg"
+    url: bgUnderwaterRoom
   },
   {
     name: "Midnight Laundromat",
-    url: "images/pixel_laundromat_night_1_1783526896576.jpg"
+    url: bgLaundromatNight
   },
   {
     name: "Autumn Treehouse",
-    url: "images/pixel_autumn_treehouse_1783526999098.jpg"
+    url: bgAutumnTreehouse
   },
   {
     name: "Space Station",
-    url: "images/pixel_space_station_1783527015716.jpg"
+    url: bgSpaceStation
   },
   {
     name: "Zen Garden",
-    url: "images/pixel_zen_garden_1783527032340.jpg"
+    url: bgZenGarden
   },
   {
     name: "Alternative Garage Studio",
-    url: "images/garage_pixel_art_1783441014712.jpg"
+    url: bgGaragePixelArt
   },
   {
     name: "Alternative Desk Study",
-    url: "images/study_girl_1_1783458443182.jpg"
+    url: bgStudyGirl1
   },
   {
     name: "Alternative Room Study",
-    url: "images/study_girl_2_1783458463989.jpg"
+    url: bgStudyGirl2
   },
   {
     name: "Cozy Study Corner",
-    url: "images/pixel_study_corner_1783255382430.jpg"
+    url: bgStudyCorner
   },
   {
     name: "Cozy Rain Cafe",
-    url: "images/pixel_rain_cafe_1783255402157.jpg"
+    url: bgRainCafe
   },
   {
     name: "Cyberpunk Study Terminal",
-    url: "images/pixel_cyberpunk_terminal_1783255416278.jpg"
+    url: bgCyberpunkTerminal
   },
   {
     name: "Peaceful Misty Forest",
-    url: "images/pixel_misty_forest_1783255428671.jpg"
+    url: bgMistyForest
   },
   {
     name: "Cozy Cabin Fireplace",
-    url: "images/pixel_cabin_fireplace_1783255440529.jpg"
+    url: bgCabinFireplace
   },
   {
     name: "Music Studio",
-    url: "images/pixel_music_studio_true_1783620947171.jpg"
+    url: bgMusicStudioTrue
   },
   {
     name: "Rainy Night Study",
-    url: "images/pixel_rainy_study_1783621791241.jpg"
+    url: bgRainyStudy
   },
   {
     name: "Peaceful Zen Garden",
-    url: "images/pixel_zen_garden_1783621805799.jpg"
+    url: bgZenGarden2
   },
   {
     name: "Quiet Magic Library",
-    url: "images/pixel_magic_library_1783621820640.jpg"
+    url: bgMagicLibrary2
   }
 ];
 
@@ -328,7 +362,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Study Mode",
     themeId: "cozy",
-    bgUrl: "images/setareh_pixel_study_v2_1783524583594.jpg",
+    bgUrl: bgSetarehStudy,
     blur: 8,
     overlay: 40,
     widgets: {
@@ -363,7 +397,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Coding Mode",
     themeId: "cyberpunk",
-    bgUrl: "images/setareh_pixel_coding_v2_1783524546639.jpg",
+    bgUrl: bgSetarehCoding,
     blur: 15,
     overlay: 65,
     widgets: {
@@ -398,7 +432,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Relax Mode",
     themeId: "ambient",
-    bgUrl: "images/setareh_pixel_relax_v2_1783524564086.jpg",
+    bgUrl: bgSetarehRelax,
     blur: 4,
     overlay: 25,
     widgets: {
