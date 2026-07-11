@@ -51,7 +51,6 @@ import {
   CustomCalendarEvent
 } from "./types";
 import DataHubWidget from "./components/DataHubWidget";
-import { getImageUrl } from "./utils/imageLoader";
 
 // --- INDEXEDDB HELPER FOR PERSISTING LOCAL CUSTOM BACKGROUND FILES ---
 const DB_NAME = "flocus_bg_db";
@@ -148,144 +147,115 @@ import WellnessWidget from "./components/WellnessWidget";
 import SpaceExplorer from "./components/SpaceExplorer";
 import CatCompanion from "./components/CatCompanion";
 
-// Static imports for pixel art backgrounds to ensure 100% correct build bundling and resolution on GitHub Pages
-import img_setareh_study from "./assets/images/setareh_pixel_study_v2_1783524583594.jpg";
-import img_setareh_coding from "./assets/images/setareh_pixel_coding_v2_1783524546639.jpg";
-import img_setareh_relax from "./assets/images/setareh_pixel_relax_v2_1783524564086.jpg";
-import img_rainy_cafe_v1 from "./assets/images/pixel_rainy_cafe_v1_1783524939912.jpg";
-import img_snowy_cabin_v1 from "./assets/images/pixel_snowy_cabin_v1_1783524959716.jpg";
-import img_sunset_subway_v1 from "./assets/images/pixel_sunset_subway_v1_1783524979144.jpg";
-import img_rooftop_twilight from "./assets/images/pixel_rooftop_twilight_1_1783526707514.jpg";
-import img_retro_arcade from "./assets/images/pixel_retro_arcade_1_1783526723869.jpg";
-import img_greenhouse_rain from "./assets/images/pixel_greenhouse_rain_1_1783526740989.jpg";
-import img_magic_library_v1 from "./assets/images/pixel_magic_library_1_1783526856865.jpg";
-import img_underwater_room from "./assets/images/pixel_underwater_room_1_1783526880519.jpg";
-import img_laundromat_night from "./assets/images/pixel_laundromat_night_1_1783526896576.jpg";
-import img_autumn_treehouse from "./assets/images/pixel_autumn_treehouse_1783526999098.jpg";
-import img_space_station from "./assets/images/pixel_space_station_1783527015716.jpg";
-import img_zen_garden_v1 from "./assets/images/pixel_zen_garden_1783527032340.jpg";
-import img_garage_pixel_art from "./assets/images/garage_pixel_art_1783441014712.jpg";
-import img_study_girl_1 from "./assets/images/study_girl_1_1783458443182.jpg";
-import img_study_girl_2 from "./assets/images/study_girl_2_1783458463989.jpg";
-import img_study_corner from "./assets/images/pixel_study_corner_1783255382430.jpg";
-import img_rain_cafe from "./assets/images/pixel_rain_cafe_1783255402157.jpg";
-import img_cyberpunk_terminal from "./assets/images/pixel_cyberpunk_terminal_1783255416278.jpg";
-import img_misty_forest from "./assets/images/pixel_misty_forest_1783255428671.jpg";
-import img_cabin_fireplace from "./assets/images/pixel_cabin_fireplace_1783255440529.jpg";
-import img_music_studio_true from "./assets/images/pixel_music_studio_true_1783620947171.jpg";
-import img_rainy_study from "./assets/images/pixel_rainy_study_1783621791241.jpg";
-import img_zen_garden_v2 from "./assets/images/pixel_zen_garden_1783621805799.jpg";
-import img_magic_library_v2 from "./assets/images/pixel_magic_library_1783621820640.jpg";
-
 // Presets study room backdrops
 const presetBgs = [
   {
     name: "Setareh Study Mode",
-    url: img_setareh_study
+    url: "images/setareh_pixel_study_v2_1783524583594.jpg"
   },
   {
     name: "Setareh Coding Mode",
-    url: img_setareh_coding
+    url: "images/setareh_pixel_coding_v2_1783524546639.jpg"
   },
   {
     name: "Setareh Relax Mode",
-    url: img_setareh_relax
+    url: "images/setareh_pixel_relax_v2_1783524564086.jpg"
   },
   {
     name: "Rainy Cyber Cafe",
-    url: img_rainy_cafe_v1
+    url: "images/pixel_rainy_cafe_v1_1783524939912.jpg"
   },
   {
     name: "Snowy Cabin",
-    url: img_snowy_cabin_v1
+    url: "images/pixel_snowy_cabin_v1_1783524959716.jpg"
   },
   {
     name: "Sunset Subway",
-    url: img_sunset_subway_v1
+    url: "images/pixel_sunset_subway_v1_1783524979144.jpg"
   },
   {
     name: "Twilight Rooftop",
-    url: img_rooftop_twilight
+    url: "images/pixel_rooftop_twilight_1_1783526707514.jpg"
   },
   {
     name: "Retro Arcade",
-    url: img_retro_arcade
+    url: "images/pixel_retro_arcade_1_1783526723869.jpg"
   },
   {
     name: "Rainy Greenhouse",
-    url: img_greenhouse_rain
+    url: "images/pixel_greenhouse_rain_1_1783526740989.jpg"
   },
   {
     name: "Magical Library",
-    url: img_magic_library_v1
+    url: "images/pixel_magic_library_1_1783526856865.jpg"
   },
   {
     name: "Underwater Room",
-    url: img_underwater_room
+    url: "images/pixel_underwater_room_1_1783526880519.jpg"
   },
   {
     name: "Midnight Laundromat",
-    url: img_laundromat_night
+    url: "images/pixel_laundromat_night_1_1783526896576.jpg"
   },
   {
     name: "Autumn Treehouse",
-    url: img_autumn_treehouse
+    url: "images/pixel_autumn_treehouse_1783526999098.jpg"
   },
   {
     name: "Space Station",
-    url: img_space_station
+    url: "images/pixel_space_station_1783527015716.jpg"
   },
   {
     name: "Zen Garden",
-    url: img_zen_garden_v1
+    url: "images/pixel_zen_garden_1783527032340.jpg"
   },
   {
     name: "Alternative Garage Studio",
-    url: img_garage_pixel_art
+    url: "images/garage_pixel_art_1783441014712.jpg"
   },
   {
     name: "Alternative Desk Study",
-    url: img_study_girl_1
+    url: "images/study_girl_1_1783458443182.jpg"
   },
   {
     name: "Alternative Room Study",
-    url: img_study_girl_2
+    url: "images/study_girl_2_1783458463989.jpg"
   },
   {
     name: "Cozy Study Corner",
-    url: img_study_corner
+    url: "images/pixel_study_corner_1783255382430.jpg"
   },
   {
     name: "Cozy Rain Cafe",
-    url: img_rain_cafe
+    url: "images/pixel_rain_cafe_1783255402157.jpg"
   },
   {
     name: "Cyberpunk Study Terminal",
-    url: img_cyberpunk_terminal
+    url: "images/pixel_cyberpunk_terminal_1783255416278.jpg"
   },
   {
     name: "Peaceful Misty Forest",
-    url: img_misty_forest
+    url: "images/pixel_misty_forest_1783255428671.jpg"
   },
   {
     name: "Cozy Cabin Fireplace",
-    url: img_cabin_fireplace
+    url: "images/pixel_cabin_fireplace_1783255440529.jpg"
   },
   {
     name: "Music Studio",
-    url: img_music_studio_true
+    url: "images/pixel_music_studio_true_1783620947171.jpg"
   },
   {
     name: "Rainy Night Study",
-    url: img_rainy_study
+    url: "images/pixel_rainy_study_1783621791241.jpg"
   },
   {
     name: "Peaceful Zen Garden",
-    url: img_zen_garden_v2
+    url: "images/pixel_zen_garden_1783621805799.jpg"
   },
   {
     name: "Quiet Magic Library",
-    url: img_magic_library_v2
+    url: "images/pixel_magic_library_1783621820640.jpg"
   }
 ];
 
@@ -326,7 +296,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Study Mode",
     themeId: "cozy",
-    bgUrl: img_setareh_study,
+    bgUrl: "images/setareh_pixel_study_v2_1783524583594.jpg",
     blur: 8,
     overlay: 40,
     widgets: {
@@ -361,7 +331,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Coding Mode",
     themeId: "cyberpunk",
-    bgUrl: img_setareh_coding,
+    bgUrl: "images/setareh_pixel_coding_v2_1783524546639.jpg",
     blur: 15,
     overlay: 65,
     widgets: {
@@ -396,7 +366,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Relax Mode",
     themeId: "ambient",
-    bgUrl: img_setareh_relax,
+    bgUrl: "images/setareh_pixel_relax_v2_1783524564086.jpg",
     blur: 4,
     overlay: 25,
     widgets: {
@@ -934,26 +904,6 @@ export default function App() {
     localStorage.setItem("focus_profiles", JSON.stringify(profiles));
   }, [profiles]);
 
-  // One-time startup check: self-heals/sanitizes any stale background URLs from older versions or cached localStorage
-  useEffect(() => {
-    setProfiles((prev) =>
-      prev.map((p) => {
-        if (!p.bgUrl || p.bgUrl === "custom_local" || p.bgUrl.startsWith("http") || p.bgUrl.startsWith("data:") || p.bgUrl.startsWith("blob:")) {
-          return p;
-        }
-        // Run getImageUrl to clean up and map to valid stock image path
-        const resolved = getImageUrl(p.bgUrl);
-        // Extract the local/repo relative filename
-        const filename = resolved.split('/').pop() || "";
-        const relativeUrl = `./images/${filename}`;
-        if (p.bgUrl !== relativeUrl) {
-          return { ...p, bgUrl: relativeUrl };
-        }
-        return p;
-      })
-    );
-  }, []);
-
   useEffect(() => {
     localStorage.setItem("focus_active_profile", currentProfileName);
   }, [currentProfileName]);
@@ -1122,7 +1072,7 @@ export default function App() {
   const currentUiStyle = activeProfile.uiStyle || "glass";
 
   const isLocal = activeProfile.bgUrl === "custom_local";
-  const standardBgUrl = isLocal ? (localBgUrl || "") : getImageUrl(activeProfile.bgUrl);
+  const standardBgUrl = isLocal ? (localBgUrl || "") : activeProfile.bgUrl;
   const rawBgUrlToRender = nasaBgUrl ? nasaBgUrl : standardBgUrl;
   const bgUrlToRender = rawBgUrlToRender
     ? rawBgUrlToRender.replace(/^http:\/\//i, "https://")
@@ -1615,7 +1565,7 @@ export default function App() {
               <div className="w-8 h-8 rounded-full bg-[#7c3aed]/20 flex items-center justify-center">
                 <Sliders className="w-4 h-4 text-[#7c3aed]" />
               </div>
-              <h2 className="font-sans font-bold text-lg text-white tracking-tight">MeowLOCK</h2>
+              <h2 className="font-sans font-bold text-lg text-white tracking-tight">Workspace Studio</h2>
             </div>
             <button
               onClick={() => setIsSidebarOpen(false)}
@@ -1978,9 +1928,9 @@ export default function App() {
                     }`}
                   >
                     <img
-                      src={getImageUrl(preset.url)}
+                      src={preset.url}
                       alt={preset.name}
-                      loading="lazy"
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/40 flex items-end p-1">
@@ -2115,7 +2065,65 @@ export default function App() {
             />
           </div>
 
+          {/* API Keys Configuration */}
+          <div className="space-y-4 pt-5 border-t border-white/5">
+            <h3 className="font-sans font-semibold text-xs text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#7c3aed]" />
+              API Key Configuration
+            </h3>
+            <p className="text-[10px] text-gray-500 font-sans leading-relaxed">
+              Add your custom API keys for advanced Gemini generative features and NASA Astronomy integration. They are stored 100% securely and locally in your browser.
+            </p>
+            <div className="space-y-3.5">
+              <div>
+                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1.5 font-sans font-semibold">
+                  Gemini API Key
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => handleGeminiKeyChange(e.target.value)}
+                    className="w-full bg-white/5 border border-white/5 text-[12px] font-mono rounded-xl pl-4 pr-10 py-2.5 text-white focus:border-[#7c3aed] focus:bg-white/10 focus:outline-none transition-all placeholder:text-gray-600"
+                    placeholder="Paste your Gemini API key (AI Studio)"
+                  />
+                  {geminiKey && (
+                    <button
+                      onClick={() => handleGeminiKeyChange("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors text-[10px] font-sans font-medium"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1.5 font-sans font-semibold">
+                  NASA APOD API Key
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={nasaKey}
+                    onChange={(e) => handleNasaKeyChange(e.target.value)}
+                    className="w-full bg-white/5 border border-white/5 text-[12px] font-mono rounded-xl pl-4 pr-10 py-2.5 text-white focus:border-[#7c3aed] focus:bg-white/10 focus:outline-none transition-all placeholder:text-gray-600"
+                    placeholder="DEMO_KEY"
+                  />
+                  {nasaKey && (
+                    <button
+                      onClick={() => handleNasaKeyChange("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors text-[10px] font-sans font-medium"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
         {/* Sidebar Info card */}
         <div className="p-5 bg-white/[0.02] border-t border-white/5 text-[11px] text-gray-500 font-sans leading-relaxed">
           <p className="flex items-center gap-2">
@@ -2430,7 +2438,7 @@ export default function App() {
 
                 <div className="flex flex-col min-w-0">
                   <span className="text-[10px] text-amber-400 font-sans uppercase font-bold tracking-widest flex items-center gap-1">
-                    🎯 Current Focus
+                    🎯 Current Focus | تمرکز فعلی
                   </span>
                   <span className="text-sm font-sans font-semibold text-gray-100 truncate mt-0.5 leading-tight">
                     {activeTask.title}
@@ -2452,7 +2460,7 @@ export default function App() {
                 <button
                   onClick={() => handleToggleTask(activeTask.id)}
                   className="ml-4 w-8 h-8 rounded-lg bg-amber-400 hover:bg-amber-500 text-neutral-950 flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-md shrink-0"
-                  title="Mark Task Completed"
+                  title="Mark Task Completed | ثبت به عنوان انجام شده"
                 >
                   <Check className="w-4 h-4 stroke-[2.5]" />
                 </button>
@@ -2876,7 +2884,7 @@ export default function App() {
         <button
           onClick={() => setIsSidebarOpen(true)}
           className="p-2 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-          title="MeowLOCK Config"
+          title="Workspace Studio Config"
         >
           <Settings className="w-4 h-4" />
         </button>

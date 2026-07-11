@@ -87,8 +87,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "lofi-fallback-2",
         name: "Chillhop Cafe Underground",
-        url: "https://stream.zeno.fm/f3vby666g0duv",
-        url_resolved: "https://stream.zeno.fm/f3vby666g0duv",
+        url: "http://stream.zeno.fm/f3vby666g0duv",
+        url_resolved: "http://stream.zeno.fm/f3vby666g0duv",
         tags: "lofi, chill, instrumental",
         favicon: "",
         country: "United States",
@@ -107,8 +107,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "focus-fallback-1",
         name: "SomaFM: Drone Zone",
-        url: "https://ice1.somafm.com/dronezone-128-mp3",
-        url_resolved: "https://ice1.somafm.com/dronezone-128-mp3",
+        url: "http://ice1.somafm.com/dronezone-128-mp3",
+        url_resolved: "http://ice1.somafm.com/dronezone-128-mp3",
         tags: "ambient, drone, space",
         favicon: "",
         country: "United States",
@@ -118,8 +118,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "focus-fallback-2",
         name: "SomaFM: Deep Space One",
-        url: "https://ice1.somafm.com/deepspaceone-128-mp3",
-        url_resolved: "https://ice1.somafm.com/deepspaceone-128-mp3",
+        url: "http://ice1.somafm.com/deepspaceone-128-mp3",
+        url_resolved: "http://ice1.somafm.com/deepspaceone-128-mp3",
         tags: "ambient, space, drone",
         favicon: "",
         country: "United States",
@@ -138,8 +138,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "emo-fallback-1",
         name: "Screamo & Post-Hardcore Radio",
-        url: "https://stream.zeno.fm/hshasb1q9reuv",
-        url_resolved: "https://stream.zeno.fm/hshasb1q9reuv",
+        url: "http://stream.zeno.fm/hshasb1q9reuv",
+        url_resolved: "http://stream.zeno.fm/hshasb1q9reuv",
         tags: "screamo, post-hardcore, emo",
         favicon: "",
         country: "United States",
@@ -158,8 +158,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "metal-fallback-1",
         name: "Gothique Metal Radio",
-        url: "https://stream.GothiqueMetal.com:8000/stream",
-        url_resolved: "https://stream.GothiqueMetal.com:8000/stream",
+        url: "http://stream.GothiqueMetal.com:8000/stream",
+        url_resolved: "http://stream.GothiqueMetal.com:8000/stream",
         tags: "metal, heavy metal, gothic",
         favicon: "",
         country: "France",
@@ -178,8 +178,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "punk-fallback-1",
         name: "Real Punk Radio",
-        url: "https://162.210.196.140:8043/live",
-        url_resolved: "https://162.210.196.140:8043/live",
+        url: "http://162.210.196.140:8043/live",
+        url_resolved: "http://162.210.196.140:8043/live",
         tags: "punk, punk rock, alternative",
         favicon: "",
         country: "United States",
@@ -218,8 +218,8 @@ const MOODS: MoodConfig[] = [
       {
         stationuuid: "dark-fallback-1",
         name: "Gothic Wave Underground",
-        url: "https://gothicwave.fr:8000/stream",
-        url_resolved: "https://gothicwave.fr:8000/stream",
+        url: "http://gothicwave.fr:8000/stream",
+        url_resolved: "http://gothicwave.fr:8000/stream",
         tags: "gothic, darkwave, post-punk",
         favicon: "",
         country: "France",
@@ -831,7 +831,7 @@ export default function RadioWidget({
                         }`}>
                           {station.favicon ? (
                             <img 
-                              src={station.favicon ? station.favicon.replace(/^http:\/\//i, "https://") : undefined} 
+                              src={station.favicon || undefined} 
                               alt="" 
                               className="w-full h-full object-cover"
                               onError={(e) => { e.currentTarget.style.display = "none"; }}
