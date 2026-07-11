@@ -110,10 +110,10 @@ export default function DataHubWidget({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      setSuccessMsg("دیتا با موفقیت صادر شد! / Data exported successfully!");
+      setSuccessMsg("Data exported successfully!");
       clearMessagesLater();
     } catch (err: any) {
-      setErrorMsg("خطا در خروجی گرفتن داده‌ها: " + err.message);
+      setErrorMsg("Failed to export data: " + err.message);
     }
   };
 
@@ -125,10 +125,10 @@ export default function DataHubWidget({
       await navigator.clipboard.writeText(minifiedJson);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-      setSuccessMsg("کد انتقال در حافظه کپی شد! / Transfer code copied!");
+      setSuccessMsg("Transfer code copied!");
       clearMessagesLater();
     } catch (err: any) {
-      setErrorMsg("خطا در کپی کردن کد: " + err.message);
+      setErrorMsg("Failed to copy code: " + err.message);
     }
   };
 
@@ -146,7 +146,7 @@ export default function DataHubWidget({
       setErrorMsg(null);
       setSuccessMsg(null);
       if (!text.trim()) {
-        setErrorMsg("لطفاً ابتدا کد یا فایل را قرار دهید. / Please enter a valid JSON or code.");
+        setErrorMsg("Please enter a valid JSON or code.");
         return;
       }
       
@@ -154,7 +154,7 @@ export default function DataHubWidget({
       
       // Simple structure checks
       if (!parsed || (typeof parsed !== "object")) {
-        throw new Error("فرمت وارد شده نامعتبر است. / Invalid JSON format.");
+        throw new Error("Invalid JSON format.");
       }
 
       // Check key pieces or set defaults
@@ -256,13 +256,13 @@ export default function DataHubWidget({
 
       setSuccessMsg(
         importMode === "overwrite"
-          ? "تمامی اطلاعات جایگزین و همگام شد! / All data overwritten and imported!"
-          : "اطلاعات جدید با موفقیت ادغام شد! / New data successfully merged!"
+          ? "All data overwritten and imported!"
+          : "New data successfully merged!"
       );
       setPastedCode("");
       clearMessagesLater();
     } catch (err: any) {
-      setErrorMsg("قالب اطلاعات وارد شده اشتباه است یا ناقص می‌باشد. / Invalid backup syntax: " + err.message);
+      setErrorMsg("Invalid backup syntax: " + err.message);
     }
   };
 
@@ -308,7 +308,7 @@ export default function DataHubWidget({
   const handleWipeData = () => {
     onResetAll();
     setShowConfirmReset(false);
-    setSuccessMsg("فضای کاری شما به حالت اولیه بازنشانی شد. / Workspace resetted successfully.");
+    setSuccessMsg("Workspace resetted successfully.");
     clearMessagesLater();
   };
 
@@ -321,39 +321,39 @@ export default function DataHubWidget({
             <Database className="w-4 h-4 text-[#7c3aed]" />
           </div>
           <div>
-            <h3 className="font-sans font-bold text-xs tracking-wider text-white">
-              ذخیره و انتقال داده
+            <h3 className="font-sans font-bold text-xs tracking-wider text-white uppercase">
+              Data Storage & Transfer
             </h3>
             <span className="text-[9px] text-gray-500 uppercase tracking-widest block font-medium">
-              Data Storage & Transfer
+              Local Export / Import
             </span>
           </div>
         </div>
         <div className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>محلی ایمن / Local Storage</span>
+          <span>Local Storage</span>
         </div>
       </div>
 
       {/* Stats Board */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white/[0.02] p-3 rounded-xl border border-white/5 text-center">
         <div>
-          <span className="text-xs text-gray-500 block">پروفایل‌ها</span>
+          <span className="text-xs text-gray-500 block">Profiles</span>
           <span className="text-sm font-bold text-white font-mono">{profiles.length}</span>
-          <span className="text-[8px] text-gray-600 block uppercase font-mono">Profiles</span>
+          <span className="text-[8px] text-gray-600 block uppercase font-mono">Count</span>
         </div>
         <div>
-          <span className="text-xs text-gray-500 block">کارها</span>
+          <span className="text-xs text-gray-500 block">Tasks</span>
           <span className="text-sm font-bold text-[#7c3aed] font-mono">{tasks.length}</span>
           <span className="text-[8px] text-gray-600 block uppercase font-mono">Tasks</span>
         </div>
         <div>
-          <span className="text-xs text-gray-500 block">تقویم</span>
+          <span className="text-xs text-gray-500 block">Calendar</span>
           <span className="text-sm font-bold text-amber-400 font-mono">{calendarEvents.length}</span>
           <span className="text-[8px] text-gray-600 block uppercase font-mono">Events</span>
         </div>
         <div>
-          <span className="text-xs text-gray-500 block">تمرکزها</span>
+          <span className="text-xs text-gray-500 block">Focuses</span>
           <span className="text-sm font-bold text-blue-400 font-mono">{focusHistory.length}</span>
           <span className="text-[8px] text-gray-600 block uppercase font-mono">Sessions</span>
         </div>
@@ -367,7 +367,7 @@ export default function DataHubWidget({
         >
           <Download className="w-3.5 h-3.5 text-blue-400 group-hover:scale-110 transition-transform" />
           <div className="text-right">
-            <span className="block text-[10px] font-bold">دانلود فایل پشتیبان</span>
+            <span className="block text-[10px] font-bold">Download Backup</span>
             <span className="block text-[8px] text-gray-500 font-mono">Export .JSON File</span>
           </div>
         </button>
@@ -382,7 +382,7 @@ export default function DataHubWidget({
             <Copy className="w-3.5 h-3.5 text-purple-400 group-hover:scale-110 transition-transform" />
           )}
           <div className="text-right">
-            <span className="block text-[10px] font-bold">کپی سریع کد انتقال</span>
+            <span className="block text-[10px] font-bold">Copy Transfer Code</span>
             <span className="block text-[8px] text-gray-500 font-mono">Copy Config Code</span>
           </div>
         </button>
@@ -406,7 +406,7 @@ export default function DataHubWidget({
       <div className="space-y-3 pt-3 border-t border-white/5">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
-            وارد کردن و همگام‌سازی داده
+            Import & Sync Data
           </span>
           <span className="text-[8px] text-gray-500 font-mono">Import & Sync</span>
         </div>
@@ -422,7 +422,7 @@ export default function DataHubWidget({
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
-            ادغام با داده‌های فعلی (Merge)
+            Merge with current data
           </button>
           <button
             type="button"
@@ -433,7 +433,7 @@ export default function DataHubWidget({
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
-            جایگزینی کامل (Overwrite)
+            Overwrite all data
           </button>
         </div>
 
@@ -458,14 +458,14 @@ export default function DataHubWidget({
           />
           <Upload className="w-5 h-5 text-gray-400 group-hover:text-white" />
           <div className="text-[10px] font-medium text-gray-300">
-            فایل بک‌آپ <span className="font-mono text-purple-400">.json</span> را اینجا بکشید یا انتخاب کنید
+            Drag and drop your backup <span className="font-mono text-purple-400">.json</span> file here or click to select
           </div>
           <span className="text-[8px] text-gray-500 block font-mono">Drag & Drop or browse backup file</span>
         </div>
 
         {/* Quick Paste Code Option */}
         <div className="space-y-1.5">
-          <label className="block text-[9px] text-gray-400">یا کد انتقال را در کادر زیر قرار دهید:</label>
+          <label className="block text-[9px] text-gray-400">Or paste transfer code below:</label>
           <div className="flex gap-1.5">
             <textarea
               value={pastedCode}
@@ -477,7 +477,7 @@ export default function DataHubWidget({
               onClick={() => processImportText(pastedCode)}
               className="px-3 bg-gradient-to-r from-[#7c3aed] to-indigo-600 hover:opacity-90 text-white rounded-lg font-sans font-bold text-[10px] cursor-pointer flex items-center justify-center shrink-0 transition-opacity"
             >
-              اجرا / Load
+              Load
             </button>
           </div>
         </div>
@@ -486,14 +486,14 @@ export default function DataHubWidget({
       {/* Danger Zone */}
       <div className="pt-3 border-t border-white/5 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">منطقه حساس / Danger Zone</span>
+          <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">Danger Zone</span>
           <span className="text-[8px] text-gray-600 font-mono">Reset Workspace</span>
         </div>
         
         {showConfirmReset ? (
           <div className="bg-rose-950/20 border border-rose-500/20 rounded-xl p-2.5 space-y-2">
             <p className="text-[9px] text-rose-200 leading-normal">
-              آیا مطمئن هستید؟ تمام داده‌ها، پروفایل‌ها، وظایف و تنظیمات شما برای همیشه حذف خواهند شد.
+              Are you sure? All your data, profiles, tasks and settings will be deleted forever.
               <span className="block font-bold text-rose-400 mt-1">This action is permanent and cannot be undone.</span>
             </p>
             <div className="flex gap-2">
@@ -501,13 +501,13 @@ export default function DataHubWidget({
                 onClick={handleWipeData}
                 className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg py-1.5 text-[10px] font-bold cursor-pointer transition-colors"
               >
-                بله، بازنشانی کامل / Wipe All
+                Wipe All
               </button>
               <button
                 onClick={() => setShowConfirmReset(false)}
                 className="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg py-1.5 text-[10px] cursor-pointer transition-colors"
               >
-                انصراف / Cancel
+                Cancel
               </button>
             </div>
           </div>
@@ -517,7 +517,7 @@ export default function DataHubWidget({
             className="w-full flex items-center justify-center gap-1.5 bg-rose-500/5 hover:bg-rose-500/15 border border-rose-500/10 hover:border-rose-500/20 rounded-xl py-1.5 text-[9px] text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3 h-3" />
-            <span>حذف تمام اطلاعات و ریست فکتوری / Restore Factory Settings</span>
+            <span>Restore Factory Settings</span>
           </button>
         )}
       </div>

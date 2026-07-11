@@ -214,43 +214,6 @@ const resolveAssetPath = (path: string): string => {
 };
 
 // --- PIXEL ART GHOST LOGO ---
-const PixelGhost = ({ className = "w-8 h-8" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 12 12"
-    className={`${className} text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]`}
-    style={{ imageRendering: "pixelated" }}
-  >
-    {/* Ghost Body */}
-    <g fill="currentColor">
-      <rect x="4" y="0" width="4" height="1" />
-      <rect x="2" y="1" width="8" height="1" />
-      <rect x="1" y="2" width="10" height="1" />
-      <rect x="0" y="3" width="12" height="1" />
-      <rect x="0" y="4" width="12" height="1" />
-      <rect x="0" y="5" width="12" height="1" />
-      <rect x="0" y="6" width="12" height="1" />
-      <rect x="0" y="7" width="12" height="1" />
-      <rect x="0" y="8" width="12" height="1" />
-      <rect x="0" y="9" width="12" height="1" />
-      <rect x="0" y="10" width="12" height="1" />
-      <rect x="0" y="11" width="1" height="1" />
-      <rect x="2" y="11" width="2" height="1" />
-      <rect x="5" y="11" width="2" height="1" />
-      <rect x="8" y="11" width="2" height="1" />
-      <rect x="11" y="11" width="1" height="1" />
-    </g>
-    {/* Eyes (Glowing Cyan) */}
-    <g fill="#22d3ee">
-      <rect x="3" y="4" width="2" height="2" />
-      <rect x="7" y="4" width="2" height="2" />
-    </g>
-    {/* Pupils (Black) */}
-    <g fill="#000000">
-      <rect x="3" y="4" width="1" height="2" />
-      <rect x="7" y="4" width="1" height="2" />
-    </g>
-  </svg>
-);
 
 // Presets study room backdrops
 const presetBgs = [
@@ -405,16 +368,15 @@ const initialProfiles: WorkspaceProfile[] = [
     blur: 8,
     overlay: 40,
     widgets: {
-
       timer: true,
       todo: true,
-      notes: true,
-      goals: true,
-      quote: true,
-      music: true,
-      stats: true,
-      mixer: true,
-      wellness: true
+      notes: false,
+      goals: false,
+      quote: false,
+      music: false,
+      stats: false,
+      mixer: false,
+      wellness: false
     },
     timerSettings: {
       pomodoro: 25,
@@ -2170,63 +2132,7 @@ export default function App() {
             />
           </div>
 
-          {/* API Keys Configuration */}
-          <div className="space-y-4 pt-5 border-t border-white/5">
-            <h3 className="font-sans font-semibold text-xs text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#7c3aed]" />
-              API Key Configuration
-            </h3>
-            <p className="text-[10px] text-gray-500 font-sans leading-relaxed">
-              Add your custom API keys for advanced Gemini generative features and NASA Astronomy integration. They are stored 100% securely and locally in your browser.
-            </p>
-            <div className="space-y-3.5">
-              <div>
-                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1.5 font-sans font-semibold">
-                  Gemini API Key
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={geminiKey}
-                    onChange={(e) => handleGeminiKeyChange(e.target.value)}
-                    className="w-full bg-white/5 border border-white/5 text-[12px] font-mono rounded-xl pl-4 pr-10 py-2.5 text-white focus:border-[#7c3aed] focus:bg-white/10 focus:outline-none transition-all placeholder:text-gray-600"
-                    placeholder="Paste your Gemini API key (AI Studio)"
-                  />
-                  {geminiKey && (
-                    <button
-                      onClick={() => handleGeminiKeyChange("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors text-[10px] font-sans font-medium"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1.5 font-sans font-semibold">
-                  NASA APOD API Key
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={nasaKey}
-                    onChange={(e) => handleNasaKeyChange(e.target.value)}
-                    className="w-full bg-white/5 border border-white/5 text-[12px] font-mono rounded-xl pl-4 pr-10 py-2.5 text-white focus:border-[#7c3aed] focus:bg-white/10 focus:outline-none transition-all placeholder:text-gray-600"
-                    placeholder="DEMO_KEY"
-                  />
-                  {nasaKey && (
-                    <button
-                      onClick={() => handleNasaKeyChange("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors text-[10px] font-sans font-medium"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Sidebar Info card */}
@@ -2249,7 +2155,6 @@ export default function App() {
       <header className="w-full z-30 px-8 py-6 flex items-start justify-between bg-transparent relative select-none">
         {/* Top-Left Branding */}
         <div className="flex items-center gap-3">
-          <PixelGhost className="w-9 h-9" />
           <div className="flex flex-col items-start gap-1">
             <span className="font-sans font-black text-3xl tracking-tighter text-white leading-none">MeowLOCK</span>
             <span className="font-clock-sacramento text-lg text-white/70 leading-none mt-1 select-none cursor-default capitalize">
@@ -2546,7 +2451,7 @@ export default function App() {
 
                 <div className="flex flex-col min-w-0">
                   <span className="text-[10px] text-amber-400 font-sans uppercase font-bold tracking-widest flex items-center gap-1">
-                    🎯 Current Focus | تمرکز فعلی
+                    🎯 Current Focus
                   </span>
                   <span className="text-sm font-sans font-semibold text-gray-100 truncate mt-0.5 leading-tight">
                     {activeTask.title}
@@ -2568,7 +2473,7 @@ export default function App() {
                 <button
                   onClick={() => handleToggleTask(activeTask.id)}
                   className="ml-4 w-8 h-8 rounded-lg bg-amber-400 hover:bg-amber-500 text-neutral-950 flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-md shrink-0"
-                  title="Mark Task Completed | ثبت به عنوان انجام شده"
+                  title="Mark Task Completed"
                 >
                   <Check className="w-4 h-4 stroke-[2.5]" />
                 </button>
