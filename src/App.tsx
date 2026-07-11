@@ -148,115 +148,144 @@ import WellnessWidget from "./components/WellnessWidget";
 import SpaceExplorer from "./components/SpaceExplorer";
 import CatCompanion from "./components/CatCompanion";
 
+// Static imports for pixel art backgrounds to ensure 100% correct build bundling and resolution on GitHub Pages
+import img_setareh_study from "./assets/images/setareh_pixel_study_v2_1783524583594.jpg";
+import img_setareh_coding from "./assets/images/setareh_pixel_coding_v2_1783524546639.jpg";
+import img_setareh_relax from "./assets/images/setareh_pixel_relax_v2_1783524564086.jpg";
+import img_rainy_cafe_v1 from "./assets/images/pixel_rainy_cafe_v1_1783524939912.jpg";
+import img_snowy_cabin_v1 from "./assets/images/pixel_snowy_cabin_v1_1783524959716.jpg";
+import img_sunset_subway_v1 from "./assets/images/pixel_sunset_subway_v1_1783524979144.jpg";
+import img_rooftop_twilight from "./assets/images/pixel_rooftop_twilight_1_1783526707514.jpg";
+import img_retro_arcade from "./assets/images/pixel_retro_arcade_1_1783526723869.jpg";
+import img_greenhouse_rain from "./assets/images/pixel_greenhouse_rain_1_1783526740989.jpg";
+import img_magic_library_v1 from "./assets/images/pixel_magic_library_1_1783526856865.jpg";
+import img_underwater_room from "./assets/images/pixel_underwater_room_1_1783526880519.jpg";
+import img_laundromat_night from "./assets/images/pixel_laundromat_night_1_1783526896576.jpg";
+import img_autumn_treehouse from "./assets/images/pixel_autumn_treehouse_1783526999098.jpg";
+import img_space_station from "./assets/images/pixel_space_station_1783527015716.jpg";
+import img_zen_garden_v1 from "./assets/images/pixel_zen_garden_1783527032340.jpg";
+import img_garage_pixel_art from "./assets/images/garage_pixel_art_1783441014712.jpg";
+import img_study_girl_1 from "./assets/images/study_girl_1_1783458443182.jpg";
+import img_study_girl_2 from "./assets/images/study_girl_2_1783458463989.jpg";
+import img_study_corner from "./assets/images/pixel_study_corner_1783255382430.jpg";
+import img_rain_cafe from "./assets/images/pixel_rain_cafe_1783255402157.jpg";
+import img_cyberpunk_terminal from "./assets/images/pixel_cyberpunk_terminal_1783255416278.jpg";
+import img_misty_forest from "./assets/images/pixel_misty_forest_1783255428671.jpg";
+import img_cabin_fireplace from "./assets/images/pixel_cabin_fireplace_1783255440529.jpg";
+import img_music_studio_true from "./assets/images/pixel_music_studio_true_1783620947171.jpg";
+import img_rainy_study from "./assets/images/pixel_rainy_study_1783621791241.jpg";
+import img_zen_garden_v2 from "./assets/images/pixel_zen_garden_1783621805799.jpg";
+import img_magic_library_v2 from "./assets/images/pixel_magic_library_1783621820640.jpg";
+
 // Presets study room backdrops
 const presetBgs = [
   {
     name: "Setareh Study Mode",
-    url: "./images/setareh_pixel_study_v2_1783524583594.jpg"
+    url: img_setareh_study
   },
   {
     name: "Setareh Coding Mode",
-    url: "./images/setareh_pixel_coding_v2_1783524546639.jpg"
+    url: img_setareh_coding
   },
   {
     name: "Setareh Relax Mode",
-    url: "./images/setareh_pixel_relax_v2_1783524564086.jpg"
+    url: img_setareh_relax
   },
   {
     name: "Rainy Cyber Cafe",
-    url: "./images/pixel_rainy_cafe_v1_1783524939912.jpg"
+    url: img_rainy_cafe_v1
   },
   {
     name: "Snowy Cabin",
-    url: "./images/pixel_snowy_cabin_v1_1783524959716.jpg"
+    url: img_snowy_cabin_v1
   },
   {
     name: "Sunset Subway",
-    url: "./images/pixel_sunset_subway_v1_1783524979144.jpg"
+    url: img_sunset_subway_v1
   },
   {
     name: "Twilight Rooftop",
-    url: "./images/pixel_rooftop_twilight_1_1783526707514.jpg"
+    url: img_rooftop_twilight
   },
   {
     name: "Retro Arcade",
-    url: "./images/pixel_retro_arcade_1_1783526723869.jpg"
+    url: img_retro_arcade
   },
   {
     name: "Rainy Greenhouse",
-    url: "./images/pixel_greenhouse_rain_1_1783526740989.jpg"
+    url: img_greenhouse_rain
   },
   {
     name: "Magical Library",
-    url: "./images/pixel_magic_library_1_1783526856865.jpg"
+    url: img_magic_library_v1
   },
   {
     name: "Underwater Room",
-    url: "./images/pixel_underwater_room_1_1783526880519.jpg"
+    url: img_underwater_room
   },
   {
     name: "Midnight Laundromat",
-    url: "./images/pixel_laundromat_night_1_1783526896576.jpg"
+    url: img_laundromat_night
   },
   {
     name: "Autumn Treehouse",
-    url: "./images/pixel_autumn_treehouse_1783526999098.jpg"
+    url: img_autumn_treehouse
   },
   {
     name: "Space Station",
-    url: "./images/pixel_space_station_1783527015716.jpg"
+    url: img_space_station
   },
   {
     name: "Zen Garden",
-    url: "./images/pixel_zen_garden_1783527032340.jpg"
+    url: img_zen_garden_v1
   },
   {
     name: "Alternative Garage Studio",
-    url: "./images/garage_pixel_art_1783441014712.jpg"
+    url: img_garage_pixel_art
   },
   {
     name: "Alternative Desk Study",
-    url: "./images/study_girl_1_1783458443182.jpg"
+    url: img_study_girl_1
   },
   {
     name: "Alternative Room Study",
-    url: "./images/study_girl_2_1783458463989.jpg"
+    url: img_study_girl_2
   },
   {
     name: "Cozy Study Corner",
-    url: "./images/pixel_study_corner_1783255382430.jpg"
+    url: img_study_corner
   },
   {
     name: "Cozy Rain Cafe",
-    url: "./images/pixel_rain_cafe_1783255402157.jpg"
+    url: img_rain_cafe
   },
   {
     name: "Cyberpunk Study Terminal",
-    url: "./images/pixel_cyberpunk_terminal_1783255416278.jpg"
+    url: img_cyberpunk_terminal
   },
   {
     name: "Peaceful Misty Forest",
-    url: "./images/pixel_misty_forest_1783255428671.jpg"
+    url: img_misty_forest
   },
   {
     name: "Cozy Cabin Fireplace",
-    url: "./images/pixel_cabin_fireplace_1783255440529.jpg"
+    url: img_cabin_fireplace
   },
   {
     name: "Music Studio",
-    url: "./images/pixel_music_studio_true_1783620947171.jpg"
+    url: img_music_studio_true
   },
   {
     name: "Rainy Night Study",
-    url: "./images/pixel_rainy_study_1783621791241.jpg"
+    url: img_rainy_study
   },
   {
     name: "Peaceful Zen Garden",
-    url: "./images/pixel_zen_garden_1783621805799.jpg"
+    url: img_zen_garden_v2
   },
   {
     name: "Quiet Magic Library",
-    url: "./images/pixel_magic_library_1783621820640.jpg"
+    url: img_magic_library_v2
   }
 ];
 
@@ -297,7 +326,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Study Mode",
     themeId: "cozy",
-    bgUrl: "./images/setareh_pixel_study_v2_1783524583594.jpg",
+    bgUrl: img_setareh_study,
     blur: 8,
     overlay: 40,
     widgets: {
@@ -332,7 +361,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Coding Mode",
     themeId: "cyberpunk",
-    bgUrl: "./images/setareh_pixel_coding_v2_1783524546639.jpg",
+    bgUrl: img_setareh_coding,
     blur: 15,
     overlay: 65,
     widgets: {
@@ -367,7 +396,7 @@ const initialProfiles: WorkspaceProfile[] = [
   {
     name: "Relax Mode",
     themeId: "ambient",
-    bgUrl: "./images/setareh_pixel_relax_v2_1783524564086.jpg",
+    bgUrl: img_setareh_relax,
     blur: 4,
     overlay: 25,
     widgets: {

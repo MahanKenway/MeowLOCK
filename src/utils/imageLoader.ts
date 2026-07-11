@@ -58,8 +58,14 @@ const getCleanBaseName = (file: string): string => {
 export const getImageUrl = (pathOrUrl: string): string => {
   if (!pathOrUrl) return "";
 
-  // 1. If it's a data URL, blob, or an external HTTP/S URL, return it as is.
-  if (pathOrUrl.startsWith('data:') || pathOrUrl.startsWith('blob:')) {
+  // 1. If it's a pre-resolved Vite asset, or starts with data/blob, return it immediately as is
+  if (
+    pathOrUrl.includes('/assets/') || 
+    pathOrUrl.startsWith('assets/') || 
+    pathOrUrl.startsWith('/@fs/') || 
+    pathOrUrl.startsWith('data:') || 
+    pathOrUrl.startsWith('blob:')
+  ) {
     return pathOrUrl;
   }
 
@@ -98,9 +104,20 @@ export const getImageUrl = (pathOrUrl: string): string => {
     }
   }
 
-  // 3. Dynamically resolve the absolute base path to ensure 100% compatibility 
-  // with GitHub Pages subdirectories (e.g. /repository-name/), custom subdirectories, 
-  // and root-level deployments (e.g. localhost, AI Studio preview, Vercel, Netlify).
+  // 3. Use Vite's native dynamic asset resolution (import.meta.glob)
+  // This automatically compiles and bundles images from src/assets/images/ during build,
+  // making them 100% compatible with GitHub Pages, custom domains, and subdirectories.
+  try {
+    const imageModules = import.meta.glob<{ default: string }>("../assets/images/*.{png,jpg,jpeg,gif,webp,svg}", { eager: true });
+    const globKey = `../assets/images/${matchedRealFile}`;
+    if (imageModules[globKey]) {
+      return imageModules[globKey].default;
+    }
+  } catch (e) {
+    console.warn("Failed to dynamically load asset via import.meta.glob:", e);
+  }
+
+  // 4. Fallback to absolute base path resolution (e.g. public/images/ folder)
   let baseUrl = "/";
   try {
     const hostname = window.location.hostname;
