@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Pause, RotateCcw, PictureInPicture2, Sparkles, Volume2, VolumeX, Flame, Wind, Coffee, Brain, Settings } from "lucide-react";
-import { TimerMode, TimerSettings } from "../types";
+import { TimerMode, TimerSettings, WorkspaceProfile } from "../types";
+import QuoteWidget from "./QuoteWidget";
 
 interface MinimalModeOverlayProps {
   timeLeft: number;
@@ -20,6 +21,7 @@ interface MinimalModeOverlayProps {
   settings?: TimerSettings;
   onSettingsChange?: (settings: TimerSettings) => void;
   activeProfileName?: string;
+  activeProfile?: WorkspaceProfile;
 }
 
 // Curated list of deep zen/mindfulness & study focus quotes
@@ -243,6 +245,7 @@ export default function MinimalModeOverlay({
   settings,
   onSettingsChange,
   activeProfileName = "General",
+  activeProfile,
 }: MinimalModeOverlayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [quoteIdx, setQuoteIdx] = useState(0);
@@ -494,25 +497,31 @@ export default function MinimalModeOverlay({
         
         {/* Soft, glassy Zen Quote Panel */}
         {showQuotes && (
-          <div className="h-20 flex flex-col items-center justify-center text-center">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={quoteIdx}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 0.85, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.8 }}
-                className="max-w-lg space-y-1"
-              >
-                <p className="font-sans italic text-[14px] text-white/80 leading-relaxed">
-                  "{currentQuote.quote}"
-                </p>
-                <span className="font-sans text-[10px] text-white/40 tracking-wider font-semibold uppercase">
-                  — {currentQuote.author}
-                </span>
-              </motion.div>
-            </AnimatePresence>
-          </div>
+          activeProfile ? (
+            <div className="w-full max-w-lg pointer-events-auto">
+              <QuoteWidget activeProfile={activeProfile} />
+            </div>
+          ) : (
+            <div className="h-20 flex flex-col items-center justify-center text-center">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={quoteIdx}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 0.85, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.8 }}
+                  className="max-w-lg space-y-1"
+                >
+                  <p className="font-sans italic text-[14px] text-white/80 leading-relaxed">
+                    "{currentQuote.quote}"
+                  </p>
+                  <span className="font-sans text-[10px] text-white/40 tracking-wider font-semibold uppercase">
+                    — {currentQuote.author}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          )
         )}
 
         {/* Elegant control bar panel */}

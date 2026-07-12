@@ -802,6 +802,36 @@ export default function App() {
     window.dispatchEvent(new CustomEvent("cat-active-toggle", { detail: { active: nextVal } }));
   };
 
+  const anyWidgetOpen = isTodoOpen || isMusicOpen || isNotesOpen || isMixerOpen || isStatsOpen || isStreakOpen || isCalendarOpen || isSpaceExplorerOpen || isWellnessOpen || isWeatherOpen || isRadioOpen;
+
+  const closeAllWidgets = () => {
+    // 1. Close local-only state widgets
+    setIsStreakOpen(false);
+    setIsCalendarOpen(false);
+    setIsSpaceExplorerOpen(false);
+    setIsWeatherOpen(false);
+    setIsRadioOpen(false);
+
+    // 2. Synchronize active profile widgets by setting all layout widgets to false except timer
+    if (activeProfile?.widgets) {
+      const updatedWidgets = { ...activeProfile.widgets };
+      (Object.keys(updatedWidgets) as Array<keyof typeof activeProfile.widgets>).forEach((key) => {
+        if (key !== "timer") {
+          updatedWidgets[key] = false;
+        }
+      });
+      updateProfileField("widgets", updatedWidgets);
+    }
+
+    // 3. Close profile-tied local state widgets
+    setIsTodoOpen(false);
+    setIsMusicOpen(false);
+    setIsNotesOpen(false);
+    setIsMixerOpen(false);
+    setIsStatsOpen(false);
+    setIsWellnessOpen(false);
+  };
+
   useEffect(() => {
     const handleActiveToggle = (e: any) => {
       setIsCatActive(e.detail.active);
@@ -2234,7 +2264,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* --- LEFT SIDE FLOATING STACK --- */}
-        <div className={isMobile ? "w-full z-20 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed left-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
+        <div className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed left-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
           <AnimatePresence mode="popLayout">
             {/* 1. Tasks Checklist Panel */}
             {isTodoOpen && (
@@ -2568,6 +2598,7 @@ export default function App() {
             onClose={() => toggleWidget("timer")}
             activeTask={activeTask}
             isMobile={isMobile}
+            activeProfile={activeProfile}
           />
         )}
 
@@ -2593,7 +2624,7 @@ export default function App() {
         
 
         {/* --- RIGHT SIDE FLOATING STACK --- */}
-        <div className={isMobile ? "w-full z-20 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed right-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
+        <div className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed right-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
           <AnimatePresence mode="popLayout">
             {/* 1. Ambient sound procedural Mixer */}
             {isMixerOpen && (
@@ -3008,17 +3039,19 @@ export default function App() {
         </>
       ) : (
         /* --- UNIFIED MOBILE DOCK --- */
-        <div className="fixed bottom-4 left-4 right-4 z-50">
+        <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none">
           {/* Left scroll indicator gradient */}
           <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0a0a0a]/95 to-transparent pointer-events-none z-10 rounded-l-xl" />
           {/* Right scroll indicator gradient */}
           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0a0a0a]/95 to-transparent pointer-events-none z-10 rounded-r-xl" />
 
+
+
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full flex items-center gap-1.5 select-none bg-[#0a0a0a]/90 backdrop-blur-xl rounded-xl p-1.5 border border-white/5 overflow-x-auto no-scrollbar scroll-smooth"
+            className="w-full flex items-center gap-1.5 select-none bg-[#0a0a0a]/90 backdrop-blur-xl rounded-xl p-1.5 border border-white/5 overflow-x-auto no-scrollbar scroll-smooth pointer-events-auto"
           >
           {/* 1. Todo */}
           <button
@@ -3203,6 +3236,7 @@ export default function App() {
           onClockColorChange={setClockColor}
           username={username}
           activeTask={activeTask}
+          activeProfile={activeProfile}
         />
       )}
   

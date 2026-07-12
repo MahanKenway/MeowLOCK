@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Play, Pause, RotateCcw, Settings, Maximize2, Minimize2, Bell, BellOff, ArrowRight } from "lucide-react";
-import { TimerMode, TimerSettings, FocusSession, Task } from "../types";
+import { TimerMode, TimerSettings, FocusSession, Task, WorkspaceProfile } from "../types";
 
 import MinimalModeOverlay from "./MinimalModeOverlay";
 
@@ -23,6 +23,7 @@ interface TimerWidgetProps {
   onClose?: () => void;
   activeTask?: Task | null;
   isMobile?: boolean;
+  activeProfile?: WorkspaceProfile;
 }
 
 export default function TimerWidget({
@@ -43,6 +44,7 @@ export default function TimerWidget({
   onClose,
   activeTask = null,
   isMobile = false,
+  activeProfile,
 }: TimerWidgetProps) {
   const miniRef = useRef<HTMLDivElement>(null);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -276,6 +278,7 @@ export default function TimerWidget({
         settings={settings}
         onSettingsChange={onSettingsChange}
         activeProfileName={activeProfileName}
+        activeProfile={activeProfile}
       />
     );
   }

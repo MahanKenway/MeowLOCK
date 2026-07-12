@@ -199,9 +199,9 @@ export default function WellnessWidget({
               <button
                 onClick={onClose}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className={isMobile ? "p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer" : "p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer"}
               >
-                <X className="w-4 h-4" />
+                <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
               </button>
             </div>
 
