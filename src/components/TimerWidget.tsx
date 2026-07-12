@@ -22,6 +22,7 @@ interface TimerWidgetProps {
   windowRoundness?: number;
   onClose?: () => void;
   activeTask?: Task | null;
+  isMobile?: boolean;
 }
 
 export default function TimerWidget({
@@ -41,6 +42,7 @@ export default function TimerWidget({
   windowRoundness = 16,
   onClose,
   activeTask = null,
+  isMobile = false,
 }: TimerWidgetProps) {
   const miniRef = useRef<HTMLDivElement>(null);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -282,7 +284,7 @@ export default function TimerWidget({
   if (isMiniMode) {
     return (
       <motion.div
-        drag
+        drag={isMobile ? false : true}
         dragMomentum={true}
         dragElastic={0.1}
         dragTransition={{ power: 0.03, timeConstant: 1200 }}
@@ -535,14 +537,21 @@ export default function TimerWidget({
 
   return (
     <motion.div
-      drag
+      drag={isMobile ? false : true}
       dragMomentum={true}
       dragElastic={0.1}
       dragTransition={{ power: 0.03, timeConstant: 1200 }}
       id="timer-widget"
       data-window-title="Timer.exe"
-      className="absolute top-6 right-6 z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-8 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window cursor-move"
-      style={{ borderRadius: `${windowRoundness}px`, resize: 'both', overflow: "auto", minWidth: '320px', minHeight: '300px' }}
+      className={isMobile ? "relative w-full z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-6 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window" : "absolute top-6 right-6 z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-8 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window cursor-move"}
+      style={{
+        borderRadius: `${windowRoundness}px`,
+        resize: isMobile ? 'none' : 'both',
+        overflow: "auto",
+        width: isMobile ? '100%' : 'auto',
+        minWidth: isMobile ? '100%' : '320px',
+        minHeight: isMobile ? 'auto' : '300px'
+      }}
     >
       {onClose && (
         <button

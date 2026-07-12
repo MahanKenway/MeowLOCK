@@ -18,6 +18,7 @@ interface WellnessWidgetProps {
   onClose: () => void;
   settings?: WellnessSettings;
   onSettingsChange: (settings: WellnessSettings) => void;
+  isMobile?: boolean;
 }
 
 const DEFAULT_SETTINGS: WellnessSettings = {
@@ -33,7 +34,8 @@ export default function WellnessWidget({
   isOpen,
   onClose,
   settings = DEFAULT_SETTINGS,
-  onSettingsChange
+  onSettingsChange,
+  isMobile = false
 }: WellnessWidgetProps) {
   // Active alerts
   const [activeAlerts, setActiveAlerts] = useState<{ id: string; type: "break" | "eye" | "water"; message: string }[]>([]);
@@ -175,12 +177,12 @@ export default function WellnessWidget({
         {isOpen && (
           <motion.div
             key="wellness-widget"
-            drag
+            drag={isMobile ? false : true}
             dragMomentum={true}
             dragElastic={0.1}
-            className="pointer-events-auto absolute top-20 right-20 bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col retro-window p-5 z-40"
+            className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto absolute top-20 right-20 bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col retro-window p-5 z-40"}
             style={{
-              width: '380px',
+              width: isMobile ? 'auto' : '380px',
               borderRadius: '16px'
             }}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}

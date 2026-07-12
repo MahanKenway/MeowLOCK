@@ -10,6 +10,7 @@ interface CentralClockProps {
   clockSize?: number;
   clockColor?: string;
   modeName?: string;
+  isMobile?: boolean;
 }
 
 export default function CentralClock({
@@ -21,6 +22,7 @@ export default function CentralClock({
   clockSize = 120,
   clockColor = "white",
   modeName = "General",
+  isMobile = false,
 }: CentralClockProps) {
   const [time, setTime] = useState(new Date());
 
@@ -369,19 +371,19 @@ export default function CentralClock({
         </div>
         <div className="retro-clock-content flex flex-col items-center justify-center p-8">
           {showGreeting && (
-            <h2 className="font-sans font-bold text-[32px] text-white drop-shadow-md leading-tight retro-text mb-0" style={{ color: textAndClockColor }}>
+            <h2 className="font-sans font-bold text-2xl sm:text-[32px] text-white drop-shadow-md leading-tight retro-text mb-0" style={{ color: textAndClockColor }}>
               {getDynamicGreeting(time, username)}
             </h2>
           )}
           {showDate && (
-            <h3 className="font-sans font-bold text-[32px] text-white drop-shadow-md mb-0.5 leading-tight retro-text" style={{ color: textAndClockColor }}>
+            <h3 className="font-sans font-bold text-2xl sm:text-[32px] text-white drop-shadow-md mb-0.5 leading-tight retro-text" style={{ color: textAndClockColor }}>
               {getDayMessage(time)}
             </h3>
           )}
           <div
             className={`${clockFontClass} font-bold text-white tracking-tighter drop-shadow-2xl retro-clock-time`}
             style={{ 
-              fontSize: `${clockSize * 1.8}px`, 
+              fontSize: isMobile ? `${Math.min(clockSize * 0.75, 78)}px` : `${clockSize * 1.8}px`, 
               lineHeight: "1",
               color: textAndClockColor
             }}

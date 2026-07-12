@@ -732,6 +732,17 @@ export default function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMinimalMode, setIsMinimalMode] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   const [isTodoOpen, setIsTodoOpen] = useState(false);
   const [isMusicOpen, setIsMusicOpen] = useState(false);
   const [musicViewMode, setMusicViewMode] = useState<"normal" | "mini" | "alt" | "alt_mini">("normal");
@@ -798,6 +809,24 @@ export default function App() {
     window.addEventListener("cat-active-toggle", handleActiveToggle);
     return () => window.removeEventListener("cat-active-toggle", handleActiveToggle);
   }, []);
+
+  // Lock body scroll on mobile when any modal/widget is open
+  useEffect(() => {
+    if (isMobile) {
+      const isAnyModalOpen = isTodoOpen || isNotesOpen || isCalendarOpen || isSpaceExplorerOpen || isMixerOpen || isMusicOpen || isRadioOpen || isStatsOpen || isStreakOpen || isWellnessOpen || isSidebarOpen || isWeatherOpen;
+      if (isAnyModalOpen) {
+        document.body.style.overflow = "hidden";
+      } else {
+        document.body.style.overflow = "";
+      }
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobile, isTodoOpen, isNotesOpen, isCalendarOpen, isSpaceExplorerOpen, isMixerOpen, isMusicOpen, isRadioOpen, isStatsOpen, isStreakOpen, isWellnessOpen, isSidebarOpen, isWeatherOpen]);
+
   const [currentRadioStation, setCurrentRadioStation] = useState<any | null>(() => {
     const saved = localStorage.getItem("current_radio_station");
     return saved ? JSON.parse(saved) : null;
@@ -1620,6 +1649,19 @@ export default function App() {
 
       {!isMinimalMode ? (
         <>
+          {/* Backdrop for Workspace Studio sidebar */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSidebarOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 pointer-events-auto"
+              />
+            )}
+          </AnimatePresence>
+
           {/* --- SIDEBAR PANEL (Collapsible Controls) --- */}
       <div
         className={`fixed top-0 right-0 h-full w-full sm:w-[500px] md:w-[600px] bg-[#0a0a0a]/80 backdrop-blur-3xl border-l border-white/5 z-40 transform transition-transform duration-500 flex flex-col justify-between ${
@@ -1661,30 +1703,7 @@ export default function App() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-sans">
-                  Workspace Motto / Quote
-                </label>
-                <textarea
-                  value={quoteData.quote}
-                  onChange={(e) => setQuoteData({ ...quoteData, quote: e.target.value })}
-                  className="w-full bg-white/5 border border-white/5 text-[13px] rounded-xl px-4 py-3 text-white focus:border-[#7c3aed] focus:bg-white/10 focus:outline-none font-sans h-20 resize-none transition-all placeholder:text-gray-600"
-                  placeholder="Enter custom motivation quote"
-                />
-              </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-sans">
-                  Quote Author
-                </label>
-                <input
-                  type="text"
-                  value={quoteData.author}
-                  onChange={(e) => setQuoteData({ ...quoteData, author: e.target.value })}
-                  className="w-full bg-white/5 border border-white/5 text-[13px] rounded-xl px-4 py-2.5 text-white focus:border-[#7c3aed] focus:bg-white/10 focus:outline-none font-sans transition-all placeholder:text-gray-600"
-                  placeholder="Author"
-                />
-              </div>
             </div>
           </div>
 
@@ -2152,7 +2171,7 @@ export default function App() {
       </div>
 
       {/* --- MAIN HEADER BAR --- */}
-      <header className="w-full z-30 px-8 py-6 flex items-start justify-between bg-transparent relative select-none">
+      <header className="w-full z-30 px-4 lg:px-8 py-4 lg:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-transparent relative select-none">
         {/* Top-Left Branding */}
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-start gap-1">
@@ -2189,21 +2208,47 @@ export default function App() {
       </header>
 
       {/* --- MAIN DASHBOARD AREA --- */}
-      <main className="flex-1 relative z-10 flex w-full h-full overflow-hidden p-6">
+      <main className="flex-1 relative z-10 flex flex-col lg:flex-row w-full h-full lg:overflow-hidden overflow-y-auto p-4 lg:p-6 gap-6">
+        {/* Mobile Backdrop Overlay */}
+        <AnimatePresence>
+          {isMobile && (isTodoOpen || isNotesOpen || isCalendarOpen || isSpaceExplorerOpen || isMixerOpen || isMusicOpen || isRadioOpen || isStatsOpen || isStreakOpen || isWellnessOpen) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (isTodoOpen) toggleWidget("todo");
+                if (isNotesOpen) toggleWidget("notes");
+                if (isCalendarOpen) setIsCalendarOpen(false);
+                if (isSpaceExplorerOpen) setIsSpaceExplorerOpen(false);
+                if (isMixerOpen) toggleWidget("mixer");
+                if (isMusicOpen) toggleWidget("music");
+                if (isRadioOpen) setIsRadioOpen(false);
+                if (isStatsOpen) toggleWidget("stats");
+                if (isStreakOpen) setIsStreakOpen(false);
+                if (isWellnessOpen) toggleWidget("wellness");
+              }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm cursor-pointer pointer-events-auto"
+            />
+          )}
+        </AnimatePresence>
+
         {/* --- LEFT SIDE FLOATING STACK --- */}
-        <div className="fixed left-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4">
+        <div className={isMobile ? "w-full z-20 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed left-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
           <AnimatePresence mode="popLayout">
             {/* 1. Tasks Checklist Panel */}
             {isTodoOpen && (
               <motion.div
                 key="todo-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title="Tasks.exe"
-                className="pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"
-                style={{
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: 'both',
                   overflow: 'auto',
                   width: '420px',
@@ -2219,9 +2264,9 @@ export default function App() {
               >
                 <button
                   onClick={() => toggleWidget("todo")}
-                  className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
                 >
-                  <X className="w-4 h-4" />
+                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                 </button>
                 <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
                   <TodoListWidget
@@ -2257,15 +2302,17 @@ export default function App() {
             {isNotesOpen && (
               <motion.div
                 key="notes-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title={notesViewMode === "mini" ? "Sticky_Note.exe" : (notesViewMode === "alt" ? "Vintage_Journal.dat" : (notesViewMode === "alt_mini" ? "Compact_Journal.dat" : "Notepad.exe"))}
-                className={notesViewMode === "alt" || notesViewMode === "alt_mini" ? "pointer-events-auto relative flex flex-col p-0 transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : (notesViewMode === "alt" || notesViewMode === "alt_mini" ? "pointer-events-auto relative flex flex-col p-0 transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
                   isNotesMini ? "p-2" : "p-5"
-                }`}
-                style={{
+                }`)}
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: (notesViewMode === "alt" || notesViewMode === "alt_mini") ? 'none' : 'both',
                   overflow: 'auto',
                   width: notesViewMode === "mini" ? '250px' : (notesViewMode === "alt" ? '820px' : (notesViewMode === "alt_mini" ? '460px' : '440px')),
@@ -2282,12 +2329,12 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
               >
-                {notesViewMode === "normal" && (
+                {(notesViewMode === "normal" || isMobile) && (
                   <button
                     onClick={() => toggleWidget("notes")}
-                    className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+                    className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
                   >
-                    <X className="w-4 h-4" />
+                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                   </button>
                 )}
                 <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -2310,13 +2357,15 @@ export default function App() {
             {isCalendarOpen && (
               <motion.div
                 key="calendar-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title="Calendar_Planner.exe"
-                className="pointer-events-auto relative bg-[#0a0a0a]/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"
-                style={{
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-[#0a0a0a]/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: 'both',
                   overflow: 'auto',
                   width: '440px',
@@ -2333,6 +2382,13 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
               >
+                <button
+                  onClick={() => setIsCalendarOpen(false)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                >
+                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                </button>
                 <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
                   <CalendarWidget 
                     onClose={() => setIsCalendarOpen(false)} 
@@ -2349,13 +2405,15 @@ export default function App() {
             {isSpaceExplorerOpen && (
               <motion.div
                 key="space-explorer-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title="Space_Explorer.exe"
-                className="pointer-events-auto relative bg-[#0a0a0a]/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"
-                style={{
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-[#0a0a0a]/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: 'both',
                   overflow: 'auto',
                   width: '920px',
@@ -2372,6 +2430,13 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
               >
+                <button
+                  onClick={() => setIsSpaceExplorerOpen(false)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "hidden"}
+                >
+                  <X className="w-5 h-5" />
+                </button>
                 <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
                   <SpaceExplorer
                     onClose={() => setIsSpaceExplorerOpen(false)}
@@ -2414,6 +2479,7 @@ export default function App() {
               showDate={showDate}
               clockColor={clockColor}
               modeName={activeProfile.name}
+              isMobile={isMobile}
             />
 
             {/* Quick clock toggles row */}
@@ -2501,6 +2567,7 @@ export default function App() {
             windowRoundness={windowRoundness}
             onClose={() => toggleWidget("timer")}
             activeTask={activeTask}
+            isMobile={isMobile}
           />
         )}
 
@@ -2521,23 +2588,26 @@ export default function App() {
           onClose={() => toggleWidget("wellness")}
           settings={activeProfile.wellnessSettings}
           onSettingsChange={(settings) => updateProfileField("wellnessSettings", settings)}
+          isMobile={isMobile}
         />
         
 
         {/* --- RIGHT SIDE FLOATING STACK --- */}
-        <div className="fixed right-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4">
+        <div className={isMobile ? "w-full z-20 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed right-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
           <AnimatePresence mode="popLayout">
             {/* 1. Ambient sound procedural Mixer */}
             {isMixerOpen && (
               <motion.div
                 key="mixer-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title="SoundMixer.exe"
-                className="pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"
-                style={{
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: 'both',
                   overflow: 'auto',
                   width: '360px',
@@ -2553,9 +2623,9 @@ export default function App() {
               >
                 <button
                   onClick={() => toggleWidget("mixer")}
-                  className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
                 >
-                  <X className="w-4 h-4" />
+                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                 </button>
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                   <AmbientMixer
@@ -2572,15 +2642,17 @@ export default function App() {
             {isMusicOpen && (
               <motion.div
                 key="music-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title={musicViewMode === "mini" ? "Music_Mini.exe" : (musicViewMode === "alt" ? "iPod_Classic.exe" : (musicViewMode === "alt_mini" ? "iPod_Nano.exe" : "Music_Player.exe"))}
-                className={`pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
                   musicViewMode === "mini" ? "p-2" : (musicViewMode === "alt" ? "p-3" : (musicViewMode === "alt_mini" ? "p-2" : "p-5"))
                 }`}
-                style={{
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: (musicViewMode === "alt" || musicViewMode === "alt_mini") ? 'none' : 'both',
                   overflow: 'auto',
                   width: musicViewMode === "mini" ? '520px' : (musicViewMode === "alt" ? '360px' : (musicViewMode === "alt_mini" ? '460px' : '520px')),
@@ -2600,11 +2672,11 @@ export default function App() {
                 <button
                   onClick={() => toggleWidget("music")}
                   onPointerDown={(e) => e.stopPropagation()}
-                  className={`absolute right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10 ${
+                  className={isMobile ? "absolute right-4 top-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : `absolute right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10 ${
                     musicViewMode === "mini" ? "top-2.5" : (musicViewMode === "alt" ? "top-2.5" : (musicViewMode === "alt_mini" ? "top-2.5" : "top-4"))
                   }`}
                 >
-                  <X className="w-4 h-4" />
+                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                 </button>
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                   <MusicWidget
@@ -2623,15 +2695,17 @@ export default function App() {
             {isRadioOpen && (
               <motion.div
                 key="radio-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title={isRadioMini ? undefined : "Radio_Underground.exe"}
-                className={`pointer-events-auto relative bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
                   isRadioMini ? "p-2.5" : "retro-window p-5"
                 }`}
-                style={{
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: isRadioMini ? 'none' : 'both',
                   overflow: 'hidden',
                   width: isRadioMini ? '240px' : '640px',
@@ -2645,13 +2719,13 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, y: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
               >
-                {!isRadioMini && (
+                {(!isRadioMini || isMobile) && (
                   <button
                     onClick={() => setIsRadioOpen(false)}
                     onPointerDown={(e) => e.stopPropagation()}
-                    className="absolute right-4 top-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+                    className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute right-4 top-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
                   >
-                    <X className="w-4 h-4" />
+                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                   </button>
                 )}
                 <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -2678,13 +2752,15 @@ export default function App() {
             {isStatsOpen && (
               <motion.div
                 key="stats-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title="Statistics.exe"
-                className="pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"
-                style={{
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: 'both',
                   overflow: 'auto',
                   width: '360px',
@@ -2700,9 +2776,9 @@ export default function App() {
               >
                 <button
                   onClick={() => toggleWidget("stats")}
-                  className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
                 >
-                  <X className="w-4 h-4" />
+                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                 </button>
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                   <StatsWidget sessions={focusHistory} dailyGoalMinutes={dailyGoalMinutes} />
@@ -2716,15 +2792,17 @@ export default function App() {
             {isStreakOpen && (
               <motion.div
                 key="streak-widget"
-                drag
+                drag={isMobile ? false : true}
                 dragMomentum={true}
                 dragElastic={0.1}
                 dragTransition={{ power: 0.03, timeConstant: 1200 }}
                 data-window-title={isStreakMini ? "StarStreakPin" : "StellarStreak.exe"}
-                className={`pointer-events-auto relative bg-neutral-950/60 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col justify-center items-center ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col justify-center items-center retro-window" : `pointer-events-auto relative bg-neutral-950/60 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col justify-center items-center ${
                   isStreakMini ? "p-1 overflow-hidden" : "p-5"
                 }`}
-                style={{
+                style={isMobile ? {
+                  borderRadius: `${windowRoundness}px`
+                } : {
                   resize: isStreakMini ? 'none' : 'both',
                   overflow: isStreakMini ? 'hidden' : 'auto',
                   width: isStreakMini ? '110px' : '360px',
@@ -2738,12 +2816,12 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
               >
-                {!isStreakMini && (
+                {(!isStreakMini || isMobile) && (
                   <button
                     onClick={() => setIsStreakOpen(false)}
-                    className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+                    className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
                   >
-                    <X className="w-4 h-4" />
+                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                   </button>
                 )}
                 <div className={`no-scrollbar ${isStreakMini ? "w-full h-full flex items-center justify-center" : "flex-1 w-full overflow-y-auto"}`}>
@@ -2763,152 +2841,351 @@ export default function App() {
         </div>
 
       </main>
-      {/* --- LEFT FLOATING DOCK --- */}
-      <motion.div drag dragMomentum={true} dragElastic={0.1} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }} className="fixed bottom-6 left-6 z-30 flex items-center gap-1.5 select-none bg-[#0a0a0a]/60 backdrop-blur-md rounded-xl p-1.5 border border-white/5 cursor-move">
-        <div className="px-1 text-gray-500 hover:text-white transition-colors cursor-move">
-          <GripVertical className="w-4 h-4" />
-        </div>
-        <button
-          onClick={() => toggleWidget("todo")}
-          className={`p-2 rounded-lg transition-all relative cursor-pointer hover:bg-white/10 ${
-            isTodoOpen ? "text-white" : "text-gray-400 hover:text-white"
-          }`}
-          title="Daily Focus Checklist"
-        >
-          <ListTodo className="w-4 h-4" />
-          {tasks.filter((t) => !t.completed).length > 0 && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
+      {/* --- FLOATING DOCK CONTROLS --- */}
+      {!isMobile ? (
+        <>
+          {/* --- LEFT FLOATING DOCK --- */}
+          <motion.div
+            drag={true}
+            dragMomentum={true}
+            dragElastic={0.1}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-6 left-6 z-30 flex items-center gap-1.5 select-none bg-[#0a0a0a]/60 backdrop-blur-md rounded-xl p-1.5 border border-white/5 cursor-move"
+          >
+            <div className="px-1 text-gray-500 hover:text-white transition-colors cursor-move">
+              <GripVertical className="w-4 h-4" />
+            </div>
+            <button
+              onClick={() => toggleWidget("todo")}
+              className={`p-2 rounded-lg transition-all relative cursor-pointer hover:bg-white/10 ${
+                isTodoOpen ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+              title="Daily Focus Checklist"
+            >
+              <ListTodo className="w-4 h-4" />
+              {tasks.filter((t) => !t.completed).length > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={() => toggleWidget("music")}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isMusicOpen ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+              title="Audio Player"
+            >
+              <Music className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsRadioOpen(!isRadioOpen)}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isRadioOpen ? "text-emerald-400" : "text-gray-400 hover:text-white"
+              }`}
+              title="Underground Late-Night Radio"
+            >
+              <Radio className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => toggleWidget("notes")}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isNotesOpen ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+              title="Scratchpad Notes Editor"
+            >
+              <Pen className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isCalendarOpen ? "text-amber-400" : "text-gray-400 hover:text-white"
+              }`}
+              title="Dual Calendar & Study Planner"
+            >
+              <Calendar className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsSpaceExplorerOpen(!isSpaceExplorerOpen)}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isSpaceExplorerOpen ? "text-amber-400" : "text-gray-400 hover:text-white"
+              }`}
+              title="NASA Space Explorer"
+            >
+              <Telescope className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsWellnessOpen(!isWellnessOpen)}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isWellnessOpen ? "text-rose-400" : "text-gray-400 hover:text-white"
+              }`}
+              title="Wellness & Habits"
+            >
+              <HeartPulse className="w-4 h-4" />
+            </button>
+            <button onClick={() => setIsWeatherOpen(!isWeatherOpen)} className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${isWeatherOpen ? "text-sky-400" : "text-gray-400 hover:text-white"}`} title="Weather"><CloudSun className="w-4 h-4" /></button>
+          </motion.div>
 
-          )}
-        </button>
-        <button
-          onClick={() => toggleWidget("music")}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isMusicOpen ? "text-white" : "text-gray-400 hover:text-white"
-          }`}
-          title="Audio Player"
-        >
-          <Music className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsRadioOpen(!isRadioOpen)}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isRadioOpen ? "text-emerald-400" : "text-gray-400 hover:text-white"
-          }`}
-          title="Underground Late-Night Radio"
-        >
-          <Radio className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => toggleWidget("notes")}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isNotesOpen ? "text-white" : "text-gray-400 hover:text-white"
-          }`}
-          title="Scratchpad Notes Editor"
-        >
-          <Pen className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isCalendarOpen ? "text-amber-400" : "text-gray-400 hover:text-white"
-          }`}
-          title="Dual Calendar & Study Planner"
-        >
-          <Calendar className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsSpaceExplorerOpen(!isSpaceExplorerOpen)}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isSpaceExplorerOpen ? "text-amber-400" : "text-gray-400 hover:text-white"
-          }`}
-          title="NASA Space Explorer"
-        >
-          <Telescope className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsWellnessOpen(!isWellnessOpen)}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isWellnessOpen ? "text-rose-400" : "text-gray-400 hover:text-white"
-          }`}
-          title="Wellness & Habits"
-        >
-          <HeartPulse className="w-4 h-4" />
-        </button>
-        <button onClick={() => setIsWeatherOpen(!isWeatherOpen)} className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${isWeatherOpen ? "text-sky-400" : "text-gray-400 hover:text-white"}`} title="Weather"><CloudSun className="w-4 h-4" /></button>
-      </motion.div>
+          {/* --- RIGHT FLOATING DOCK --- */}
+          <motion.div
+            drag={true}
+            dragMomentum={true}
+            dragElastic={0.1}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-6 right-6 z-30 flex items-center gap-1.5 select-none bg-[#0a0a0a]/60 backdrop-blur-md rounded-xl p-1.5 border border-white/5 cursor-move"
+          >
+            <div className="px-1 text-gray-500 hover:text-white transition-colors cursor-move">
+              <GripVertical className="w-4 h-4" />
+            </div>
+            <button
+              onClick={() => toggleWidget("timer")}
+              className={`p-2 rounded-lg transition-all relative cursor-pointer hover:bg-white/10 ${
+                activeProfile.widgets.timer !== false ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+              title="Focus Timer"
+            >
+              <Timer className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => toggleWidget("mixer")}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isMixerOpen ? "bg-[#7c3aed] text-white" : "text-gray-400 hover:text-white"
+              }`}
+              title="Layer Ambient Noise"
+            >
+              <Leaf className="w-4 h-4" />
+            </button>
+            <button
+              className="p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 text-gray-400 hover:text-white"
+              title="Home"
+            >
+              <Home className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsStreakOpen(!isStreakOpen)}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isStreakOpen ? "text-amber-400" : "text-gray-400 hover:text-amber-400"
+              }`}
+              title="Stellar Study Streak"
+            >
+              <Star className={`w-4 h-4 ${isStreakOpen ? "fill-amber-400/20" : ""}`} />
+            </button>
+            <button
+              onClick={() => toggleWidget("stats")}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isStatsOpen ? "text-white" : "text-gray-400 hover:text-white"
+              }`}
+              title="Daily Focus Analytics"
+            >
+              <Lightbulb className="w-4 h-4" />
+            </button>
+            <button
+              onClick={toggleCatActive}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                isCatActive ? "text-amber-400" : "text-gray-400 hover:text-white"
+              }`}
+              title="Virtual Cat Companion (Zeytoon)"
+            >
+              <Cat className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              title="Workspace Studio Config"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setIsMinimalMode(true)}
+              className="p-2 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer ml-1"
+              title="Enter Fullscreen Zen Mode"
+            >
+              <Maximize className="w-4 h-4" />
+            </button>
+          </motion.div>
+        </>
+      ) : (
+        /* --- UNIFIED MOBILE DOCK --- */
+        <div className="fixed bottom-4 left-4 right-4 z-50">
+          {/* Left scroll indicator gradient */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0a0a0a]/95 to-transparent pointer-events-none z-10 rounded-l-xl" />
+          {/* Right scroll indicator gradient */}
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0a0a0a]/95 to-transparent pointer-events-none z-10 rounded-r-xl" />
 
-      {/* --- RIGHT FLOATING DOCK --- */}
-      <motion.div drag dragMomentum={true} dragElastic={0.1} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }} className="fixed bottom-6 right-6 z-30 flex items-center gap-1.5 select-none bg-[#0a0a0a]/60 backdrop-blur-md rounded-xl p-1.5 border border-white/5 cursor-move">
-          <div className="px-1 text-gray-500 hover:text-white transition-colors cursor-move">
-            <GripVertical className="w-4 h-4" />
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full flex items-center gap-1.5 select-none bg-[#0a0a0a]/90 backdrop-blur-xl rounded-xl p-1.5 border border-white/5 overflow-x-auto no-scrollbar scroll-smooth"
+          >
+          {/* 1. Todo */}
+          <button
+            onClick={() => toggleWidget("todo")}
+            className={`p-3 rounded-lg transition-all relative shrink-0 cursor-pointer ${
+              isTodoOpen ? "text-white bg-white/10" : "text-gray-400"
+            }`}
+            title="Daily Focus Checklist"
+          >
+            <ListTodo className="w-5 h-5" />
+            {tasks.filter((t) => !t.completed).length > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full" />
+            )}
+          </button>
+
+          {/* 2. Timer */}
           <button
             onClick={() => toggleWidget("timer")}
-            className={`p-2 rounded-lg transition-all relative cursor-pointer hover:bg-white/10 ${
-              activeProfile.widgets.timer !== false ? "text-white" : "text-gray-400 hover:text-white"
+            className={`p-3 rounded-lg transition-all relative shrink-0 cursor-pointer ${
+              activeProfile.widgets.timer !== false ? "text-white bg-white/10" : "text-gray-400"
             }`}
             title="Focus Timer"
           >
-            <Timer className="w-4 h-4" />
+            <Timer className="w-5 h-5" />
           </button>
+
+          {/* 3. Music */}
           <button
-          onClick={() => toggleWidget("mixer")}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isMixerOpen ? "bg-[#7c3aed] text-white" : "text-gray-400 hover:text-white"
-          }`}
-          title="Layer Ambient Noise"
-        >
-          <Leaf className="w-4 h-4" />
-        </button>
-        <button
-          className="p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 text-gray-400 hover:text-white"
-          title="Home"
-        >
-          <Home className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsStreakOpen(!isStreakOpen)}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isStreakOpen ? "text-amber-400" : "text-gray-400 hover:text-amber-400"
-          }`}
-          title="Stellar Study Streak"
-        >
-          <Star className={`w-4 h-4 ${isStreakOpen ? "fill-amber-400/20" : ""}`} />
-        </button>
-        <button
-          onClick={() => toggleWidget("stats")}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isStatsOpen ? "text-white" : "text-gray-400 hover:text-white"
-          }`}
-          title="Daily Focus Analytics"
-        >
-          <Lightbulb className="w-4 h-4" />
-        </button>
-        <button
-          onClick={toggleCatActive}
-          className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-            isCatActive ? "text-amber-400" : "text-gray-400 hover:text-white"
-          }`}
-          title="Virtual Cat Companion (Zeytoon)"
-        >
-          <Cat className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-          title="Workspace Studio Config"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => setIsMinimalMode(true)}
-          className="p-2 rounded-lg transition-all text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer ml-1"
-          title="Enter Fullscreen Zen Mode"
-        >
-          <Maximize className="w-4 h-4" />
-        </button>
-      </motion.div>
+            onClick={() => toggleWidget("music")}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isMusicOpen ? "text-white bg-white/10" : "text-gray-400"
+            }`}
+            title="Audio Player"
+          >
+            <Music className="w-5 h-5" />
+          </button>
+
+          {/* 4. Mixer */}
+          <button
+            onClick={() => toggleWidget("mixer")}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isMixerOpen ? "text-white bg-white/10" : "text-gray-400"
+            }`}
+            title="Layer Ambient Noise"
+          >
+            <Leaf className="w-5 h-5" />
+          </button>
+
+          {/* 5. Radio */}
+          <button
+            onClick={() => setIsRadioOpen(!isRadioOpen)}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isRadioOpen ? "text-emerald-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Underground Radio"
+          >
+            <Radio className="w-5 h-5" />
+          </button>
+
+          {/* 6. Notes */}
+          <button
+            onClick={() => toggleWidget("notes")}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isNotesOpen ? "text-white bg-white/10" : "text-gray-400"
+            }`}
+            title="Scratchpad Notes Editor"
+          >
+            <Pen className="w-5 h-5" />
+          </button>
+
+          {/* 7. Calendar */}
+          <button
+            onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isCalendarOpen ? "text-amber-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Calendar & Planner"
+          >
+            <Calendar className="w-5 h-5" />
+          </button>
+
+          {/* 8. Stats */}
+          <button
+            onClick={() => toggleWidget("stats")}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isStatsOpen ? "text-white bg-white/10" : "text-gray-400"
+            }`}
+            title="Daily Focus Analytics"
+          >
+            <Lightbulb className="w-5 h-5" />
+          </button>
+
+          {/* 9. Streak */}
+          <button
+            onClick={() => setIsStreakOpen(!isStreakOpen)}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isStreakOpen ? "text-amber-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Stellar Study Streak"
+          >
+            <Star className={`w-5 h-5 ${isStreakOpen ? "fill-amber-400/20" : ""}`} />
+          </button>
+
+          {/* 10. Cat */}
+          <button
+            onClick={toggleCatActive}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isCatActive ? "text-amber-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Virtual Cat"
+          >
+            <Cat className="w-5 h-5" />
+          </button>
+
+          {/* 11. Space Explorer */}
+          <button
+            onClick={() => setIsSpaceExplorerOpen(!isSpaceExplorerOpen)}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isSpaceExplorerOpen ? "text-amber-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="NASA Space Explorer"
+          >
+            <Telescope className="w-5 h-5" />
+          </button>
+
+          {/* 12. Wellness */}
+          <button
+            onClick={() => setIsWellnessOpen(!isWellnessOpen)}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isWellnessOpen ? "text-rose-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Wellness & Habits"
+          >
+            <HeartPulse className="w-5 h-5" />
+          </button>
+
+          {/* 13. Weather */}
+          <button
+            onClick={() => setIsWeatherOpen(!isWeatherOpen)}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              isWeatherOpen ? "text-sky-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Weather"
+          >
+            <CloudSun className="w-5 h-5" />
+          </button>
+
+          {/* 14. Settings */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-3 rounded-lg transition-all shrink-0 text-gray-400 cursor-pointer"
+            title="Workspace Studio Config"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+
+          {/* 15. Zen Mode */}
+          <button
+            onClick={() => setIsMinimalMode(true)}
+            className="p-3 rounded-lg transition-all shrink-0 text-gray-400 cursor-pointer"
+            title="Enter Zen Mode"
+          >
+            <Maximize className="w-5 h-5" />
+          </button>
+        </motion.div>
+      </div>
+      )}
         </>
       ) : (
         <TimerWidget
