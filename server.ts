@@ -1925,6 +1925,224 @@ app.get("/api/music/archive-stream/:identifier", async (req, res) => {
   }
 });
 
+// ----------------- SPOTIFY OAUTH ENDPOINTS -----------------
+
+app.get("/api/auth/spotify/url", (req, res) => {
+  const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
+  if (!spotifyClientId) {
+    return res.status(500).json({ error: "SPOTIFY_CLIENT_ID is not configured in environment variables." });
+  }
+
+  const origin = req.query.origin || process.env.APP_URL || "http://localhost:3000";
+  const redirectUri = `${origin}/auth/spotify/callback`;
+
+  const scopes = [
+    "streaming",
+    "user-modify-playback-state",
+    "user-read-playback-state",
+    "user-read-currently-playing"
+  ].join(" ");
+
+  const params = new URLSearchParams({
+    client_id: spotifyClientId,
+    response_type: "code",
+    redirect_uri: redirectUri,
+    scope: scopes,
+    show_dialog: "true"
+  });
+
+  const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
+  res.json({ url: authUrl });
+});
+
+app.get("/auth/spotify/callback", async (req, res) => {
+  const code = req.query.code as string;
+  const error = req.query.error as string;
+
+  if (error) {
+    return res.send(`
+      <html>
+        <head><meta charset="utf-8"/><title>Spotify Error</title></head>
+        <body style="background-color: #09090b; color: #ef4444; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+          <div style="text-align: center; max-width: 400px; padding: 20px;">
+            <h2>خطا در اتصال به اسپاتیفای</h2>
+            <p>${error}</p>
+            <p style="color: #a1a1aa; font-size: 13px;">این پنجره به زودی بسته می‌شود.</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: "SPOTIFY_AUTH_ERROR", error: "${error}" }, "*");
+              setTimeout(() => window.close(), 2500);
+            } else {
+              window.location.href = "/";
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  }
+
+  if (!code) {
+    return res.status(400).send("No authorization code provided.");
+  }
+
+  try {
+    const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
+    const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+
+    if (!spotifyClientId || !spotifyClientSecret) {
+      throw new Error("Spotify client ID or client secret is not configured on the server.");
+    }
+
+    // Determine absolute callback redirect URL
+    const protocol = req.secure ? "https" : "http";
+    const host = req.headers.host || "localhost:3000";
+    const origin = `${protocol}://${host}`;
+    const redirectUri = `${origin}/auth/spotify/callback`;
+
+    // Exchange authorization code for access & refresh tokens
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": "Basic " + Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString("base64")
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: code,
+        redirect_uri: redirectUri
+      }).toString()
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Spotify token exchange fail:", errorText);
+      throw new Error(`Token exchange failed with status ${response.status}: ${errorText}`);
+    }
+
+    const tokenData = await response.json() as any;
+
+    res.send(`
+      <html>
+        <head>
+          <meta charset="utf-8"/>
+          <title>Spotify Authenticated</title>
+          <style>
+            body {
+              background-color: #09090b;
+              color: #ffffff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+            }
+            .spinner {
+              border: 3px solid rgba(255,255,255,0.1);
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              border-left-color: #1ed760;
+              animation: spin 1s linear infinite;
+              margin-bottom: 20px;
+            }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          </style>
+        </head>
+        <body>
+          <div class="spinner"></div>
+          <h2>اتصال با موفقیت انجام شد!</h2>
+          <p>در حال انتقال اطلاعات به برنامه... این پنجره به زودی بسته می‌شود.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: "SPOTIFY_AUTH_SUCCESS",
+                payload: {
+                  accessToken: ${JSON.stringify(tokenData.access_token)},
+                  refreshToken: ${JSON.stringify(tokenData.refresh_token)},
+                  expiresAt: ${Date.now() + (tokenData.expires_in * 1000)}
+                }
+              }, "*");
+              setTimeout(() => {
+                window.close();
+              }, 1200);
+            } else {
+              window.location.href = "/";
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (err: any) {
+    console.error("Error exchanging code for Spotify tokens:", err);
+    res.send(`
+      <html>
+        <head><meta charset="utf-8"/><title>Spotify Exchange Error</title></head>
+        <body style="background-color: #09090b; color: #ef4444; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+          <div style="text-align: center; max-width: 400px; padding: 20px;">
+            <h2>خطا در دریافت کلید اتصال</h2>
+            <p>${err.message}</p>
+            <p style="color: #a1a1aa; font-size: 13px;">این پنجره به زودی بسته می‌شود.</p>
+          </div>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: "SPOTIFY_AUTH_ERROR", error: "${err.message}" }, "*");
+              setTimeout(() => window.close(), 3000);
+            } else {
+              window.location.href = "/";
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  }
+});
+
+app.post("/api/auth/spotify/refresh", async (req, res) => {
+  const { refresh_token } = req.body;
+  if (!refresh_token) {
+    return res.status(400).json({ error: "Missing refresh_token." });
+  }
+
+  try {
+    const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
+    const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+
+    if (!spotifyClientId || !spotifyClientSecret) {
+      throw new Error("Spotify client credentials are not configured on the server.");
+    }
+
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": "Basic " + Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString("base64")
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refresh_token
+      }).toString()
+    });
+
+    if (!response.ok) {
+      const errTxt = await response.text();
+      throw new Error(`Token refresh failed with status ${response.status}: ${errTxt}`);
+    }
+
+    const tokenData = await response.json() as any;
+    res.json({
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || refresh_token,
+      expiresAt: Date.now() + (tokenData.expires_in * 1000)
+    });
+  } catch (err: any) {
+    console.error("Error refreshing Spotify tokens:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ----------------- STATIC FILES & VITE MIDDLEWARE -----------------
 
 async function startServer() {

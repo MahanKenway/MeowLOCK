@@ -28,6 +28,14 @@ import {
 } from "lucide-react";
 import DiscoverMusic from "./DiscoverMusic";
 import { getLyricsClientSide, resolveArchiveStream, resolveLastfmStream } from "../services/music";
+import {
+  getSpotifyAuthUrl,
+  refreshSpotifyToken,
+  searchSpotifyTrack,
+  playSpotifyTrack,
+  pauseSpotifyPlayback,
+  SpotifyTrack
+} from "../services/spotify";
 
 interface Track {
   id: string;
@@ -317,6 +325,11 @@ export default function MusicWidget({
   
   const [resolvedUrl, setResolvedUrl] = useState("");
   const [isResolvingUrl, setIsResolvingUrl] = useState(false);
+
+  // Get current active track (local / default fallback)
+  const currentTrack: Track = currentTrackIdx >= 0 && tracks[currentTrackIdx] 
+    ? tracks[currentTrackIdx] 
+    : DEFAULT_FALLBACK_TRACK;
   
   const [localViewMode, setLocalViewMode] = useState<"normal" | "mini" | "alt" | "alt_mini">("normal");
   const viewMode = externalViewMode !== undefined ? externalViewMode : (externalMini ? "mini" : localViewMode);
@@ -559,11 +572,334 @@ export default function MusicWidget({
   const [dominantColorGlow, setDominantColorGlow] = useState("rgba(124, 58, 237, 0.15)");
 
   // --- Lyrics Integration ---
-  const [activeTab, setActiveTab] = useState<"queue" | "lyrics" | "discover">("queue");
+  const [activeTab, setActiveTab] = useState<"queue" | "lyrics" | "discover" | "spotify">("queue");
   const [lyricsData, setLyricsData] = useState<{ song: string; artist: string; lyrics: { text: string; time: number }[] } | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const lastFetchedTrackRef = useRef<string | null>(null);
+
+  // --- Spotify Integration & Faking Booster State ---
+  const [spotifyTokens, setSpotifyTokens] = useState<{ accessToken: string; refreshToken: string; expiresAt: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem("zen_spotify_tokens");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [spotifyMode, setSpotifyMode] = useState<"silent" | "external">(() => {
+    return (localStorage.getItem("zen_spotify_mode") as "silent" | "external") || "silent";
+  });
+
+  const [spotifyDeviceId, setSpotifyDeviceId] = useState<string | null>(null);
+  const [spotifyCurrentTrack, setSpotifyCurrentTrack] = useState<SpotifyTrack | null>(null);
+  const [spotifyFakingStatus, setSpotifyFakingStatus] = useState<"idle" | "searching" | "playing" | "paused" | "failed" | "unauthorized">("idle");
+  const [spotifyUserProfile, setSpotifyUserProfile] = useState<any>(null);
+  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+
+  const spotifyPlayerRef = useRef<any>(null);
+
+  // Safely refresh access token if needed
+  const getOrRefreshAccessToken = async (): Promise<string | null> => {
+    if (!spotifyTokens) return null;
+    if (spotifyTokens.expiresAt - 120 * 1000 < Date.now()) {
+      try {
+        console.log("Spotify access token expired. Refreshing...");
+        const refreshed = await refreshSpotifyToken(spotifyTokens.refreshToken);
+        const updated = {
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken || spotifyTokens.refreshToken,
+          expiresAt: refreshed.expiresAt
+        };
+        setSpotifyTokens(updated);
+        localStorage.setItem("zen_spotify_tokens", JSON.stringify(updated));
+        return refreshed.accessToken;
+      } catch (err) {
+        console.error("Failed to auto-refresh Spotify token:", err);
+        setSpotifyTokens(null);
+        localStorage.removeItem("zen_spotify_tokens");
+        return null;
+      }
+    }
+    return spotifyTokens.accessToken;
+  };
+
+  // 1. Initialize Spotify Web Playback SDK for SILENT virtual playback
+  useEffect(() => {
+    if (!spotifyTokens || spotifyMode !== "silent") {
+      if (spotifyPlayerRef.current) {
+        try {
+          spotifyPlayerRef.current.disconnect();
+        } catch (e) {}
+        spotifyPlayerRef.current = null;
+        setSpotifyDeviceId(null);
+      }
+      return;
+    }
+
+    let active = true;
+
+    const initSpotifyPlayer = async () => {
+      const token = await getOrRefreshAccessToken();
+      if (!token || !active) return;
+
+      // Inject the Spotify SDK script if it's not present
+      if (!(window as any).Spotify) {
+        if (!document.getElementById("spotify-player-sdk-script")) {
+          const script = document.createElement("script");
+          script.id = "spotify-player-sdk-script";
+          script.src = "https://sdk.scdn.co/spotify-player.js";
+          script.async = true;
+          document.body.appendChild(script);
+        }
+      }
+
+      const setupPlayer = () => {
+        if (!(window as any).Spotify) return;
+
+        if (spotifyPlayerRef.current) {
+          spotifyPlayerRef.current.disconnect();
+        }
+
+        const player = new (window as any).Spotify.Player({
+          name: "Zen Workspace Fake Player",
+          getOAuthToken: async (cb: any) => {
+            const freshToken = await getOrRefreshAccessToken();
+            cb(freshToken || "");
+          },
+          volume: 0 // <--- CRITICAL: Set volume to 0 so it plays fully silently!
+        });
+
+        player.addListener("ready", ({ device_id }: any) => {
+          console.log("Spotify Silent Player Ready with Device ID:", device_id);
+          if (active) {
+            setSpotifyDeviceId(device_id);
+          }
+        });
+
+        player.addListener("not_ready", ({ device_id }: any) => {
+          console.log("Spotify Device offline:", device_id);
+          if (active) {
+            setSpotifyDeviceId(null);
+          }
+        });
+
+        player.addListener("initialization_error", ({ message }: any) => {
+          console.error("Spotify SDK Init error:", message);
+        });
+
+        player.addListener("authentication_error", async ({ message }: any) => {
+          console.error("Spotify SDK Auth error:", message);
+          await getOrRefreshAccessToken();
+        });
+
+        player.addListener("account_error", ({ message }: any) => {
+          console.error("Spotify Premium status required for SDK:", message);
+          if (active) {
+            setSpotifyMode("external");
+            localStorage.setItem("zen_spotify_mode", "external");
+          }
+        });
+
+        player.connect().then((success: boolean) => {
+          if (success) {
+            console.log("Connected silent player instance to Spotify.");
+          }
+        });
+
+        spotifyPlayerRef.current = player;
+      };
+
+      if ((window as any).Spotify) {
+        setupPlayer();
+      } else {
+        (window as any).onSpotifyWebPlaybackSDKReady = () => {
+          if (active) {
+            setupPlayer();
+          }
+        };
+      }
+    };
+
+    initSpotifyPlayer();
+
+    return () => {
+      active = false;
+      if (spotifyPlayerRef.current) {
+        try {
+          spotifyPlayerRef.current.disconnect();
+        } catch (e) {}
+        spotifyPlayerRef.current = null;
+      }
+    };
+  }, [spotifyTokens?.accessToken, spotifyMode]);
+
+  // 2. Load Spotify User Profile
+  useEffect(() => {
+    if (!spotifyTokens) {
+      setSpotifyUserProfile(null);
+      return;
+    }
+
+    let active = true;
+    const loadProfile = async () => {
+      const token = await getOrRefreshAccessToken();
+      if (!token || !active) return;
+
+      try {
+        const resp = await fetch("https://api.spotify.com/v1/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (resp.status === 401) {
+          const refreshedToken = await getOrRefreshAccessToken();
+          if (refreshedToken && active) {
+            const retryResp = await fetch("https://api.spotify.com/v1/me", {
+              headers: { Authorization: `Bearer ${refreshedToken}` }
+            });
+            if (retryResp.ok && active) {
+              setSpotifyUserProfile(await retryResp.json());
+            }
+          }
+        } else if (resp.ok && active) {
+          setSpotifyUserProfile(await resp.json());
+        }
+      } catch (err) {
+        console.error("Failed to load Spotify profile:", err);
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [spotifyTokens?.accessToken]);
+
+  // 3. Dynamic background playback sync trigger (Whenever song or play-state changes)
+  useEffect(() => {
+    if (!spotifyTokens || !currentTrack || currentTrack.id === "none") {
+      setSpotifyCurrentTrack(null);
+      return;
+    }
+
+    let active = true;
+    let playTimeout: any = null;
+
+    const syncSpotifyPlayback = async () => {
+      const token = await getOrRefreshAccessToken();
+      if (!token || !active) return;
+
+      if (isPlaying && !isResolvingUrl) {
+        setSpotifyFakingStatus("searching");
+        try {
+          const resolved = await searchSpotifyTrack(currentTrack.name, currentTrack.artist, token);
+          if (!active) return;
+
+          if (resolved) {
+            setSpotifyCurrentTrack(resolved);
+            setSpotifyFakingStatus("playing");
+
+            const targetDevice = spotifyMode === "silent" ? spotifyDeviceId : null;
+            await playSpotifyTrack(resolved.uri, targetDevice, token);
+          } else {
+            setSpotifyFakingStatus("failed");
+          }
+        } catch (err: any) {
+          console.error("Spotify sync failed:", err);
+          if (active) {
+            if (err.message === "SPOTIFY_UNAUTHORIZED") {
+              setSpotifyFakingStatus("unauthorized");
+            } else {
+              setSpotifyFakingStatus("failed");
+            }
+          }
+        }
+      } else {
+        setSpotifyFakingStatus("paused");
+        try {
+          const targetDevice = spotifyMode === "silent" ? spotifyDeviceId : null;
+          await pauseSpotifyPlayback(targetDevice, token);
+        } catch (e) {
+          console.error("Spotify sync pause failed:", e);
+        }
+      }
+    };
+
+    playTimeout = setTimeout(() => {
+      syncSpotifyPlayback();
+    }, 800);
+
+    return () => {
+      active = false;
+      if (playTimeout) clearTimeout(playTimeout);
+    };
+  }, [isPlaying, currentTrack.id, isResolvingUrl, spotifyTokens?.accessToken, spotifyMode, spotifyDeviceId]);
+
+  // 4. Handle success/error postMessages from the Spotify Auth Popup
+  useEffect(() => {
+    const handleSpotifyMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith(".run.app") && !origin.includes("localhost")) {
+        return;
+      }
+
+      if (event.data?.type === "SPOTIFY_AUTH_SUCCESS") {
+        const { payload } = event.data;
+        setSpotifyTokens(payload);
+        localStorage.setItem("zen_spotify_tokens", JSON.stringify(payload));
+        console.log("Spotify linked successfully via browser postMessage!");
+      } else if (event.data?.type === "SPOTIFY_AUTH_ERROR") {
+        console.error("Spotify login failed:", event.data.error);
+      }
+    };
+
+    window.addEventListener("message", handleSpotifyMessage);
+    return () => window.removeEventListener("message", handleSpotifyMessage);
+  }, []);
+
+  const handleConnectSpotify = async () => {
+    try {
+      setSpotifyConnecting(true);
+      const authUrl = await getSpotifyAuthUrl(window.location.origin);
+
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      const popup = window.open(
+        authUrl,
+        "spotify_oauth_popup",
+        `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no`
+      );
+
+      if (!popup) {
+        alert("لطفاً اجازه باز شدن پنجره پاپ‌آپ (Pop-up) را به مرورگر خود بدهید تا پنجره اتصال اسپاتیفای باز شود.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("خطا در ایجاد اتصال اسپاتیفای. لطفاً متغیرهای محیطی SPOTIFY_CLIENT_ID را بررسی کنید.");
+    } finally {
+      setSpotifyConnecting(false);
+    }
+  };
+
+  const handleDisconnectSpotify = () => {
+    setSpotifyTokens(null);
+    setSpotifyUserProfile(null);
+    setSpotifyCurrentTrack(null);
+    setSpotifyFakingStatus("idle");
+    localStorage.removeItem("zen_spotify_tokens");
+
+    if (spotifyPlayerRef.current) {
+      try {
+        spotifyPlayerRef.current.disconnect();
+      } catch (e) {}
+      spotifyPlayerRef.current = null;
+    }
+    setSpotifyDeviceId(null);
+  };
 
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
   const lastUrlRef = useRef<string>("");
@@ -686,11 +1022,6 @@ export default function MusicWidget({
       }
     };
   }, [isPlaying]);
-
-  // Get current active track (local / default fallback)
-  const currentTrack: Track = currentTrackIdx >= 0 && tracks[currentTrackIdx] 
-    ? tracks[currentTrackIdx] 
-    : DEFAULT_FALLBACK_TRACK;
 
   // Resolve special URL schemes client-side on-the-fly
   useEffect(() => {
@@ -2322,6 +2653,25 @@ export default function MusicWidget({
             <Compass className="w-3.5 h-3.5" />
             <span>Discover</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab("spotify")}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer relative"
+            style={{
+              backgroundColor: activeTab === "spotify" ? `${dominantColor}15` : "transparent",
+              color: activeTab === "spotify" ? (spotifyTokens ? "#1ED760" : dominantColor) : "#9ca3af"
+            }}
+          >
+            <div className="relative flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24" style={{ color: spotifyTokens ? "#1ED760" : undefined }}>
+                <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.565.387-.86.207-2.377-1.454-5.37-1.783-8.894-.982-.336.075-.668-.135-.744-.47-.075-.336.135-.668.47-.744 3.856-.88 7.15-.5 9.822 1.135.295.178.387.563.206.854zm1.224-2.723c-.226.367-.707.487-1.074.26-2.72-1.672-6.87-2.157-10.077-1.182-.413.125-.847-.107-.972-.52-.125-.413.107-.847.52-.972 3.666-1.112 8.232-.574 11.343 1.34.367.227.487.708.26 1.074zm.106-2.833C14.385 8.8 8.412 8.6 4.966 9.648a1.018 1.018 0 0 1-1.21-.767 1.02 1.02 0 0 1 .767-1.21C8.423 6.447 15 6.67 19.11 9.11a1.018 1.018 0 1 1-1.192 1.647z"/>
+              </svg>
+              {spotifyTokens && spotifyFakingStatus === "playing" && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[#1ED760] animate-ping" />
+              )}
+            </div>
+            <span>Spotify</span>
+          </button>
         </div>
         
         {activeTab === "lyrics" && lyricsData && (
@@ -2499,7 +2849,7 @@ export default function MusicWidget({
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === "discover" ? (
           /* Discover Tab content */
           <DiscoverMusic
             currentTrack={currentTrack}
@@ -2508,6 +2858,196 @@ export default function MusicWidget({
             onAddTrackToQueue={handleAddDiscoverTrackToQueue}
             dominantColor={dominantColor}
           />
+        ) : (
+          /* Spotify Tab content */
+          <div className="flex-1 flex flex-col justify-start min-h-0 w-full overflow-y-auto no-scrollbar py-1 text-right" dir="rtl">
+            {spotifyTokens ? (
+              <div className="space-y-3.5">
+                {/* Profile header */}
+                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                  {spotifyUserProfile?.images?.[0]?.url ? (
+                    <img
+                      src={spotifyUserProfile.images[0].url}
+                      alt="Spotify Profile"
+                      className="w-10 h-10 rounded-full border border-white/10 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+                      {spotifyUserProfile?.display_name?.charAt(0) || "S"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 mr-1.5">
+                    <p className="text-[10px] text-gray-400 leading-none">متصل به حساب اسپاتیفای</p>
+                    <p className="text-xs font-bold text-white truncate mt-1">
+                      {spotifyUserProfile?.display_name || "کاربر اسپاتیفای"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleDisconnectSpotify}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-[10px] font-bold transition-all cursor-pointer shrink-0"
+                  >
+                    قطع اتصال
+                  </button>
+                </div>
+
+                {/* Modes selector */}
+                <div className="bg-neutral-900/60 p-3 rounded-2xl border border-white/5 space-y-2">
+                  <p className="text-[11px] font-bold text-gray-300">حالت شبیه‌سازی پخش:</p>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setSpotifyMode("silent");
+                        localStorage.setItem("zen_spotify_mode", "silent");
+                      }}
+                      className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                        spotifyMode === "silent"
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                          : "bg-white/3 border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="text-[10px] font-black">پخش بی‌صدا (پرمیوم)</span>
+                      <span className="text-[8px] opacity-75 leading-tight">پخش کاملاً بی‌صدا در پس‌زمینه</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSpotifyMode("external");
+                        localStorage.setItem("zen_spotify_mode", "external");
+                      }}
+                      className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                        spotifyMode === "external"
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                          : "bg-white/3 border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="text-[10px] font-black">کنترلر خارجی (رایگان)</span>
+                      <span className="text-[8px] opacity-75 leading-tight">همگام‌سازی با برنامه اصلی</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Faking Playback Status Card */}
+                <div className="bg-gradient-to-br from-emerald-950/15 to-zinc-950/90 p-4 rounded-2xl border border-emerald-500/25 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px]">
+                  {spotifyFakingStatus === "playing" && (
+                    <div className="absolute w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl animate-pulse" />
+                  )}
+
+                  {spotifyFakingStatus === "searching" && (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                      <p className="text-xs font-bold text-gray-300">در حال جستجوی موزیک در اسپاتیفای...</p>
+                      <p className="text-[9px] text-gray-500 font-mono uppercase tracking-wider">{currentTrack.name}</p>
+                    </div>
+                  )}
+
+                  {spotifyFakingStatus === "playing" && spotifyCurrentTrack && (
+                    <div className="flex flex-col items-center gap-2.5 w-full">
+                      {/* CD / Vinyl rotating artwork preview */}
+                      <div className="relative w-14 h-14 rounded-full border border-emerald-500/30 overflow-hidden shadow-lg shadow-emerald-500/15 shrink-0">
+                        <img
+                          src={spotifyCurrentTrack.coverUrl || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=150&h=150&fit=crop"}
+                          alt={spotifyCurrentTrack.name}
+                          className="w-full h-full object-cover animate-spin-slow"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/15 flex items-center justify-center">
+                          <div className="w-3.5 h-3.5 bg-zinc-950 rounded-full border border-white/25" />
+                        </div>
+                      </div>
+
+                      <div className="text-center w-full max-w-[210px]">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#1ED760] text-[8px] font-black leading-none mb-1.5 animate-pulse">
+                          ● در حال ثبت لیسنینگ بی‌صدا
+                        </span>
+                        <p className="text-xs font-bold text-white truncate leading-snug select-text">
+                          {spotifyCurrentTrack.name}
+                        </p>
+                        <p className="text-[10px] text-gray-400 truncate mt-0.5 select-text">
+                          {spotifyCurrentTrack.artist}
+                        </p>
+                      </div>
+
+                      {spotifyMode === "silent" && !spotifyDeviceId && (
+                        <p className="text-[8px] text-amber-400 font-bold leading-tight mt-1 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/15">
+                          توجیه: پلیر پس‌زمینه در حال همگام‌سازی اولیه است.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {spotifyFakingStatus === "paused" && (
+                    <div className="flex flex-col items-center gap-2 py-3">
+                      <div className="w-10 h-10 rounded-full bg-zinc-900/80 border border-white/5 flex items-center justify-center text-gray-400 shadow-inner">
+                        <Pause className="w-4 h-4" />
+                      </div>
+                      <p className="text-xs font-bold text-gray-400">شبیه‌سازی پخش موقتاً متوقف شد</p>
+                      <p className="text-[8px] text-gray-600 leading-tight">موزیک پلیر فعلی شما در حالت توقف است.</p>
+                    </div>
+                  )}
+
+                  {spotifyFakingStatus === "failed" && (
+                    <div className="flex flex-col items-center gap-1.5 text-center px-4 py-2">
+                      <span className="text-amber-500 font-bold text-sm">⚠</span>
+                      <p className="text-xs font-bold text-gray-400">موزیک در بانک اطلاعات اسپاتیفای یافت نشد</p>
+                      <p className="text-[9px] text-gray-500">
+                        آهنگ "{currentTrack.name}" روی اسپاتیفای پیدا نشد یا اسم آن با الگو همخوانی ندارد.
+                      </p>
+                    </div>
+                  )}
+
+                  {spotifyFakingStatus === "idle" && (
+                    <div className="flex flex-col items-center gap-2.5 text-center py-5">
+                      <Music className="w-8 h-8 text-emerald-500 animate-pulse opacity-40" />
+                      <p className="text-xs font-bold text-gray-400">منتظر شروع پخش پلیر اصلی...</p>
+                      <p className="text-[9px] text-gray-500 leading-snug">
+                        یک آهنگ از لیست پخش را اجرا کنید تا فیک کردن اسپاتیفای فعال شود.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info Tip */}
+                <div className="bg-white/2 p-3 rounded-2xl border border-white/5 text-[9px] text-gray-400 leading-relaxed text-right">
+                  💡 **نکته هوشمند**: در حالت پرمیوم (شبیه‌ساز بی‌صدا)، یک کارت پخش جدید به نام **"Zen Workspace"** به صورت نامرئی و بی‌صدا در پس‌زمینه مرورگر فعال شده و لیسنینگ آمار شما را افزایش می‌دهد بدون اینکه صداهای موزیک لوفی یا تمرکزی شما قطع شوند!
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                {/* Custom SVG Spotify Logo */}
+                <div className="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4 text-emerald-400 animate-pulse">
+                  <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.565.387-.86.207-2.377-1.454-5.37-1.783-8.894-.982-.336.075-.668-.135-.744-.47-.075-.336.135-.668.47-.744 3.856-.88 7.15-.5 9.822 1.135.295.178.387.563.206.854zm1.224-2.723c-.226.367-.707.487-1.074.26-2.72-1.672-6.87-2.157-10.077-1.182-.413.125-.847-.107-.972-.52-.125-.413.107-.847.52-.972 3.666-1.112 8.232-.574 11.343 1.34.367.227.487.708.26 1.074zm.106-2.833C14.385 8.8 8.412 8.6 4.966 9.648a1.018 1.018 0 0 1-1.21-.767 1.02 1.02 0 0 1 .767-1.21C8.423 6.447 15 6.67 19.11 9.11a1.018 1.018 0 1 1-1.192 1.647z"/>
+                  </svg>
+                </div>
+
+                <h3 className="text-sm font-black text-white">افزایش ساعت لیسنینگ اسپاتیفای 🚀</h3>
+                
+                <p className="text-[11px] text-gray-300 leading-relaxed mt-2.5 max-w-[280px]">
+                  دوست داری بدون اینکه موزیک‌های واقعی اسپاتیفای صدا بدن و با آهنگ‌های تمرکزی و لوفی پلیرت تداخل داشته باشن، ساعت گوش دادنت در اکانت اسپاتیفای (برایWrapped و آمار فعالیت) بالا بره؟
+                </p>
+
+                <p className="text-[10px] text-gray-400 mt-2 max-w-[280px]">
+                  با اتصال اسپاتیفای، هر زمان موزیکی در این برنامه پخش می‌کنی، به صورت کاملاً خودکار و **بی‌صدا** در پس‌زمینه اکانتت ثبت و استریم می‌شود!
+                </p>
+
+                <button
+                  onClick={handleConnectSpotify}
+                  disabled={spotifyConnecting}
+                  className="mt-5 w-full max-w-[220px] py-2.5 rounded-xl bg-[#1ED760] hover:bg-[#1db954] text-black font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                >
+                  {spotifyConnecting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>در حال اتصال...</span>
+                    </>
+                  ) : (
+                    <span>اتصال به حساب اسپاتیفای</span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
