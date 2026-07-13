@@ -706,6 +706,7 @@ export default function MusicWidget({
   const [spotifyFakingStatus, setSpotifyFakingStatus] = useState<"idle" | "searching" | "playing" | "paused" | "failed" | "unauthorized">("idle");
   const [spotifyUserProfile, setSpotifyUserProfile] = useState<any>(null);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [spotifyError, setSpotifyError] = useState<string | null>(null);
 
   const spotifyPlayerRef = useRef<any>(null);
 
@@ -1011,6 +1012,7 @@ export default function MusicWidget({
   const handleConnectSpotify = async () => {
     try {
       setSpotifyConnecting(true);
+      setSpotifyError(null);
       const authUrl = await getSpotifyAuthUrl(window.location.origin);
 
       const width = 600;
@@ -1025,11 +1027,11 @@ export default function MusicWidget({
       );
 
       if (!popup) {
-        alert("Please allow pop-ups for this site so that the Spotify connection window can open.");
+        setSpotifyError("Please allow pop-ups for this site so that the Spotify connection window can open.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Error connecting to Spotify. Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server.");
+      setSpotifyError("Error connecting to Spotify. Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server.");
     } finally {
       setSpotifyConnecting(false);
     }
@@ -3180,6 +3182,18 @@ export default function MusicWidget({
                 <p className="text-[10px] text-gray-400 mt-2 max-w-[280px]">
                   By linking your Spotify account, whenever you play a track inside this Zen Workspace, a matching track is streamed **silently** on your Spotify account completely in the background!
                 </p>
+
+                {spotifyError && (
+                  <div className="mt-4 w-full max-w-[280px] bg-red-950/40 border border-red-500/20 text-red-200 text-[10px] p-3 rounded-xl flex items-start gap-2 text-left relative">
+                    <span className="flex-1 leading-normal">{spotifyError}</span>
+                    <button 
+                      onClick={() => setSpotifyError(null)}
+                      className="text-red-400 hover:text-red-200 p-0.5 rounded cursor-pointer shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={handleConnectSpotify}

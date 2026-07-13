@@ -2387,7 +2387,7 @@ export default function App() {
                 dragElastic={0.06}
                 dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={notesViewMode === "mini" ? "Sticky_Note.exe" : (notesViewMode === "alt" ? "Vintage_Journal.dat" : (notesViewMode === "alt_mini" ? "Compact_Journal.dat" : "Notepad.exe"))}
-                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : (notesViewMode === "alt" || notesViewMode === "alt_mini" ? "pointer-events-auto relative flex flex-col p-0 transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : (notesViewMode === "alt" || notesViewMode === "alt_mini" ? "pointer-events-auto relative flex flex-col p-0 transition-colors duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-colors duration-300 ${
                   isNotesMini ? "p-2" : "p-5"
                 }`)}
                 style={isMobile ? {
@@ -2739,7 +2739,7 @@ export default function App() {
                 dragElastic={0.06}
                 dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={musicViewMode === "mini" ? "Music_Mini.exe" : (musicViewMode === "alt" ? "iPod_Classic.exe" : (musicViewMode === "alt_mini" ? "iPod_Nano.exe" : "Music_Player.exe"))}
-                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-colors duration-300 ${
                   musicViewMode === "mini" ? "p-2" : (musicViewMode === "alt" ? "p-3" : (musicViewMode === "alt_mini" ? "p-2" : "p-5"))
                 }`}
                 style={isMobile ? {
@@ -2794,7 +2794,7 @@ export default function App() {
                 dragElastic={0.06}
                 dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={isRadioMini ? undefined : "Radio_Underground.exe"}
-                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
+                className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-colors duration-300 ${
                   isRadioMini ? "p-2.5" : "retro-window p-5"
                 }`}
                 style={isMobile ? {
