@@ -993,7 +993,11 @@ export default function App() {
 
     // Stream handler
     if (currentRadioStation?.url_resolved || currentRadioStation?.url) {
-      const url = currentRadioStation.url_resolved || currentRadioStation.url;
+      let url = currentRadioStation.url_resolved || currentRadioStation.url;
+      // Upgrade http to https to avoid Mixed Content blocks in secure environments (like AI Studio preview)
+      if (url.startsWith("http://") && window.location.protocol === "https:") {
+        url = url.replace(/^http:\/\//i, "https://");
+      }
       if (audio.src !== url) {
         audio.src = url;
       }
@@ -1028,16 +1032,23 @@ export default function App() {
     const audio = radioAudioRef.current;
     if (!audio) return;
 
-    const handleError = () => {
-      console.warn("Radio stream error encountered. Disabling active stream.");
-      setIsRadioPlaying(false);
+    const handleError = (e: Event) => {
+      const err = (e.target as HTMLAudioElement).error;
+      // Code 1 is MEDIA_ERR_ABORTED, which happens naturally when src is reassigned during station changes.
+      if (err && err.code === 1) {
+        return;
+      }
+      console.warn("Radio stream error encountered. Disabling active stream.", err);
+      if (isRadioPlaying) {
+        setIsRadioPlaying(false);
+      }
     };
 
     audio.addEventListener("error", handleError);
     return () => {
       audio.removeEventListener("error", handleError);
     };
-  }, [currentRadioStation]);
+  }, [currentRadioStation, isRadioPlaying]);
 
   const handleBgFileSelect = async (file: File) => {
     if (!file) return;

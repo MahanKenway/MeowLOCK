@@ -1023,7 +1023,7 @@ export default function MusicWidget({
       // Perform a safety check on configuration before opening popup or making auth requests
       const isOk = await SpotifyService.checkConfiguration(window.location.origin);
       if (!isOk) {
-        setSpotifyError("Error connecting to Spotify. Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server.");
+        setSpotifyError("Spotify keys are not configured yet. To activate the Spotify Integration, please open the Settings menu (top right), go to the Secrets panel, and add your: 1) SPOTIFY_CLIENT_ID and 2) SPOTIFY_CLIENT_SECRET.");
         setSpotifyConnecting(false);
         return;
       }
@@ -1114,6 +1114,17 @@ export default function MusicWidget({
     if (!audioRef.current) return;
     if (audioContextRef.current) return;
 
+    // Check if the URL is local/same-origin or a blob
+    const url = resolvedUrl || "";
+    const isLocalBlob = url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("file:");
+    const isSameOrigin = url.startsWith("/") || url.startsWith("./") || url.startsWith(window.location.origin);
+
+    // ONLY initialize Web Audio Context for local blobs or same-origin files to prevent CORS audio silencing!
+    if (!isLocalBlob && !isSameOrigin) {
+      console.log("External/cross-origin audio source detected. Bypassing AudioContext routing to prevent CORS blocks.");
+      return;
+    }
+
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass();
@@ -1148,7 +1159,11 @@ export default function MusicWidget({
       }
 
       const updateScale = () => {
-        if (analyserRef.current) {
+        const url = resolvedUrl || "";
+        const isLocalBlob = url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("file:");
+        const isSameOrigin = url.startsWith("/") || url.startsWith("./") || url.startsWith(window.location.origin);
+
+        if (analyserRef.current && (isLocalBlob || isSameOrigin)) {
           const bufferLength = analyserRef.current.frequencyBinCount;
           const dataArray = new Uint8Array(bufferLength);
           analyserRef.current.getByteFrequencyData(dataArray);
@@ -1163,6 +1178,12 @@ export default function MusicWidget({
           // Drive a smooth, responsive breathing scale transition (up to +6% size boost at peak volume)
           const targetScale = 1 + (average / 255) * 0.06;
           setVisualizerScale((prev) => prev + (targetScale - prev) * 0.18); // Soft Lerp
+        } else {
+          // Simulated smooth pulsing visualizer scale when playing external audio streams that bypass Web Audio
+          const time = Date.now() * 0.005;
+          const beat = Math.pow(Math.sin(time), 4) * 0.04 + Math.sin(time * 0.2) * 0.01;
+          const targetScale = 1 + Math.max(0, beat);
+          setVisualizerScale((prev) => prev + (targetScale - prev) * 0.12);
         }
         animationFrameIdRef.current = requestAnimationFrame(updateScale);
       };
@@ -1191,7 +1212,7 @@ export default function MusicWidget({
         cancelAnimationFrame(animationFrameIdRef.current);
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying, resolvedUrl]);
 
   // Resolve special URL schemes client-side on-the-fly
   useEffect(() => {
