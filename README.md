@@ -1,72 +1,113 @@
-# Flocus - Next-Gen Focus Workspace 🌌
+# 🌌 Flocus — The Ultimate Retro-Futuristic Cognitive Workspace
 
-Flocus is a highly customizable, aesthetic, and distraction-free digital environment designed for students, deep workers, and creators. It is much more than a simple timer app—it is a unified sensory environment where time, organic procedural soundscapes, generative visuals, and structured task management merge into a singular, highly focused flow state.
+[![Framework: React 19](https://img.shields.io/badge/Framework-React%2019-0052cc?style=flat-squared&logo=react)](https://react.dev)
+[![Styles: Tailwind CSS 4.0](https://img.shields.io/badge/Styles-Tailwind%20CSS%204.0-38bdf8?style=flat-squared&logo=tailwind-css)](https://tailwindcss.com)
+[![Engine: Web Audio API](https://img.shields.io/badge/Audio-Web%20Audio%20API-ff6b6b?style=flat-squared&logo=soundcharts)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+[![AI Power: Gemini Pro/Flash](https://img.shields.io/badge/AI-Gemini%20Pro%20%26%20Flash-9b5de5?style=flat-squared&logo=google-gemini)](https://deepmind.google/technologies/gemini/)
 
----
-
-## 🎨 Architectural Highlights & Features
-
-### 1. Unified Sensory Environment & Personalization Engine
-*   **Workspace Presets**: Instantly switch between custom modes like *Study Mode*, *Coding Mode*, *Relax Mode*, or save your active visuals, sounds, timer parameters, and widget visibility as a brand new profile.
-*   **Glassmorphic Design**: An elegant glassmorphic dashboard that sits over a high-resolution background with responsive visual bounds (adjustable background blur and darkness overlays).
-
-### 2. Multi-Mode Focus Timer System
-*   **Four Integrated Modes**: Pomodoro (25/5), Stopwatch (for raw flow state tracking), Countdown Timer (custom duration), and Breaks.
-*   **Procedural Meditation Bowl Chimes**: Using the client-side Web Audio API, Flocus synthesizes authentic, rich harmonic chime tones representing a meditation bowl—avoiding any heavy network requests.
-*   **Floating Mini-Timer**: Pop open a floating micro-timer that hovers at the bottom corner of your workspace to monitor focus while referencing notes.
-
-### 3. Procedural Organic Ambient Sound Mixer
-*   *Zero network bandwidth white noise!* Using Web Audio API audio synthesis oscillators, standard white noise, pink noise, heavy rolling rainstorms, cafe chatter, and crackling log fires are synthesized entirely in code, giving users fine-grained volume sliders.
-
-### 4. Grounded Quote & Cognitive Advice Engine
-*   Includes a search-grounded quote module. Users can search for specific study advice, cognitive science tips, or motivating quotes by inputting topics (e.g., *quantum mechanics*, *literature*, *deep mathematics*). Powered by **Gemini 3.5 Flash** with Google Search grounding enabled, complete with source citations.
-
-### 5. AI Study Assistant & Markdown Notes
-*   A fully fledged note-taking panel with instant local persistence. Includes a powerful built-in **Gemini 3.1 Pro** assistant to summarize, expand, outline, structure, or generate flashcards directly from active notes. Includes a toggle to switch to high thinking mode for complex logical queries.
-
-### 6. Generative Custom Wallpapers
-*   Type a visual visual description (e.g., *cozy rain studio, warm lighting, anime watercolor*) and use **Gemini 3.1 Flash Image** to generate high-resolution backgrounds (choice of 1K, 2K, or 4K quality) instantly inside your browser.
+> **Flocus** is a highly premium, aesthetic, and distraction-free cognitive desktop designed for deep workers, programmers, and creators. It blends an elegant retro-futuristic operating system aesthetic with organic audio synthesis, generative AI tools, and structured task management into a singular, highly immersive flow-state environment.
 
 ---
 
-## 🛠️ Tech Stack & Model Routing
+## 🎨 Architectural Masterpieces & Core Subsystems
 
-*   **Frontend**: React 19, TypeScript, Tailwind CSS 4.0, Lucide Icons, Recharts (visual analytics), HTML5 Web Audio API.
-*   **Backend**: Express.js server, TSX/Esbuild server compiler, Vite middleware.
-*   **Model Routing**:
-    *   `gemini-3.5-flash` (with Search Grounding): Motivational Quotes, cognitive tips, and search queries.
-    *   `gemini-3.1-pro-preview` (with Thinking): AI Notes processing, summarizing, flashcard generation, and high thinking.
-    *   `gemini-3.1-flash-image`: Custom high-fidelity wallpaper generation (1K, 2K, 4K resolutions).
+### 1. Retro OS Interface & Glassmorphism
+*   **Fully Windowed Desktop:** Experience custom glassmorphic windows (e.g., `Tasks.exe`, `Notepad.exe`, `SoundMixer.exe`, `iPod_Classic.exe`, `Statistics.exe`) that are fully draggable with physical micro-animations.
+*   **Aesthetic Background Damping:** Adjust background visual blur and dark overlay depth on the fly to tune your environmental sensory input.
+*   **Dynamic Profiles:** Instantly hot-swap workspaces with pre-configured settings like *Study Mode*, *Coding Mode*, or *Relax Mode*, or construct and save your own layouts.
+
+### 2. Synthesized Organic Audio Mixer (0% Bandwidth)
+*   **Code-Generated Waveforms:** No heavy static sound assets or network requests! Flocus utilizes low-level `Web Audio API` oscillators and noise generators to construct organic soundscapes completely in-code:
+    *   🌧️ *Heavy Rolling Rainstorms*
+    *   🔥 *Crackling Log Fires*
+    *   ☕ *Dynamic Cafe Chatter*
+    *   🍃 *Forest Whispers*
+    *   🌫️ *Procedural White, Pink, and Brown Noise*
+*   **Zen Meditation Bowl Chimes:** Authentic harmonic chime sequences synthesized mathematically to represent traditional Tibetan bowls.
+
+### 3. Integrated iPod Classic & Nano Music Suite
+*   **Retro Simulation:** Switch between the complete full-scale `iPod Classic` (including a functional click-wheel scrolling simulator) or the minimal `iPod Nano` player interface.
+*   **Aesthetic Presets:** Preloaded with rich, high-fidelity lofi study tracks, ambient coding space synths, and classical piano, along with live Radio Paradise and SomaFM shoegaze streams.
+*   **Discover Live Archive Feed:** Search and stream millions of live concerts, bootlegs, and historic tapes directly from the *Internet Archive* and *Last.fm* API backends (fully updated to prioritize *My Chemical Romance* concert tapes out of the box).
+
+### 4. Interactive Virtual Cat Companion (`CatCompanion.dat`)
+*   Meet your procedural companion cat who roams, plays, naps, and sits on your active workspace cards.
+*   Features physics-based dragging, contextual status responses, mood reactions, and click-to-pet feedback with dynamic text reactions.
+
+### 5. Gemini AI Cognitive Hub
+*   **Grounded Quotes & Cognitive Advice:** Search-grounded contextual search queries (e.g., *"How to beat procrastination in math"* or *"Best pomodoro schedules for programming"*). Backed by **Gemini 3.5 Flash** with Google Search Grounding to present authentic research citations.
+*   **AI Markdown Notes Assistant:** A premium workspace note taker with instant local persistence and an embedded high-thinking **Gemini 3.1 Pro** engine to summarize, expand, outline, structure, or generate interactive study flashcards directly from active text.
+*   **Generative Wallpapers:** Create breathtaking custom high-resolution canvas backdrops (1K, 2K, 4K quality options) by describing any visual mood (e.g., *"Cozy cyberpunk room, warm neon lights, rainy day anime pastel style"*) using **Gemini 3.1 Flash Image** generation.
+
+---
+
+## 🛠️ The Premium Technology Stack
+
+```
+   ┌───────────────────────────────────────────────────────────────┐
+   │                       FLOCUS FRONTEND                         │
+   │      React 19  •  TypeScript  •  Tailwind CSS 4.0             │
+   └───────────────┬───────────────────────────────────────────────┘
+                   │
+                   ▼ (Express API Proxy / Static Assets)
+   ┌───────────────────────────────────────────────────────────────┐
+   │                        EXPRESS SERVER                         │
+   │               Vite Middleware  •  Node.js ESM                 │
+   └───────────────┬───────────────────────────────────────────────┘
+                   │
+                   ▼ (Server-Side Secure Gemini Handshake)
+   ┌───────────────────────────────────────────────────────────────┐
+   │                       GOOGLE GEMINI SDK                       │
+   │  gemini-3.1-pro-preview  •  gemini-3.5-flash  •  Imagen 3     │
+   └───────────────────────────────────────────────────────────────┘
+```
+
+*   **Audio DSP:** Web Audio API (gain nodes, biquad filters, dynamics compressors, brownian/white noise buffer source synthesis).
+*   **Analytics Visualization:** SVG-rendered responsive trend charts powered by `Recharts`.
+*   **Physics & Animation Engine:** Staggered spring dynamics and inertia controls courtesy of `motion/react`.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Installation
-To install the workspace dependencies, run:
-```bash
-npm run install
+### 1. Environment Configuration
+Create a secure `.env` file in the root folder (see `.env.example` as a template):
+```env
+GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
-### 2. Start Development Server
-Boot up the integrated Express backend server with Vite middleware support:
+### 2. Dependency Installation
+Initialize the clean, modular local package dependencies:
+```bash
+npm install
+```
+
+### 3. Run the Local Development Environment
+Boot up the full-stack server running Vite's hot development server in-middleware:
 ```bash
 npm run dev
 ```
-The server binds to port `3000` on your host.
+Open [http://localhost:3000](http://localhost:3000) to view your retro-futuristic digital terminal!
 
-### 3. Production Build
-Compile both static frontend and compiled CommonJS backend:
+### 4. Enterprise Production Compilation
+Compile the static webapp and bundle the Express server into a standalone, ultra-fast executing server payload:
 ```bash
 npm run build
 ```
-This will compile client files to `dist/` and generate a single self-contained `dist/server.cjs` bundle containing the backend server. Run it via:
+Launch the compiled Node bundle:
 ```bash
-npm start
+npm run start
 ```
 
 ---
 
-## 🛡️ Key Security Guidelines
-*   **No Exposed Credentials**: The Gemini API Key (`GEMINI_API_KEY`) is stored securely server-side and is never exposed to the client browser.
-*   **API Proxies**: All AI calls are safely routed via standard POST endpoints (`/api/gemini/*`) to ensure client safety.
+## 🛡️ Enterprise Security Architecture
+*   **Secure API Encapsulation:** All sensitive API calls to the Gemini endpoints are proxied server-side via `/api/gemini/*` endpoints. **No API keys are ever leaked or accessible inside client network tabs.**
+*   **Safe File I/O Sandbox:** User notes, task checklists, statistics, and theme preferences are bound securely to browser `localStorage` or cached in-sandbox, providing a rapid, seamless offline-first experience with zero tracking.
+
+---
+
+<p align="center">
+  <i>"Simplicity is the ultimate sophistication. Focus is the ultimate weapon."</i><br>
+  <b>Flocus Space Technologies © 2026. All rights reserved.</b>
+</p>

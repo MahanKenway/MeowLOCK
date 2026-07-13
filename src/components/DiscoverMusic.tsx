@@ -55,7 +55,7 @@ export default function DiscoverMusic({
 
   // Curated quick-search tags for Archive.org
   const quickSearches: string[] = [
-    "Grateful Dead", 
+    "My Chemical Romance", 
     "Live Concert", 
     "Classical piano", 
     "Vintage Jazz", 
@@ -97,8 +97,8 @@ export default function DiscoverMusic({
     if (searchQuery.trim()) {
       performSearch(searchQuery);
     } else {
-      setSearchQuery("Grateful Dead");
-      performSearch("Grateful Dead");
+      setSearchQuery("My Chemical Romance");
+      performSearch("My Chemical Romance");
     }
   }, []);
 

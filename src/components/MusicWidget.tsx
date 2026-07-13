@@ -268,12 +268,47 @@ export default function MusicWidget({
     } catch {}
     return [
       {
+        id: "lofi-stargazing",
+        name: "Stargazing (Lofi Edit)",
+        artist: "Lofi Study Club",
+        url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+        cover: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?q=80&w=400&h=400&fit=crop",
+        format: "Audio stream",
+        duration: "06:12"
+      },
+      {
+        id: "lofi-midnight",
+        name: "Midnight Coffee",
+        artist: "Retro Beats",
+        url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        cover: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=400&h=400&fit=crop",
+        format: "Audio stream",
+        duration: "07:05"
+      },
+      {
+        id: "synth-deep",
+        name: "Deep Coding Space",
+        artist: "Synthwave Focus",
+        url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+        cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=400&h=400&fit=crop",
+        format: "Audio stream",
+        duration: "05:02"
+      },
+      {
+        id: "piano-solitude",
+        name: "Relaxing Piano Solitude",
+        artist: "Classical Dreams",
+        url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+        cover: "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?q=80&w=400&h=400&fit=crop",
+        format: "Audio stream",
+        duration: "05:38"
+      },
+      {
         id: "rp-mellow",
         name: "Radio Paradise (Mellow Mix)",
         artist: "Indie, Folk & Chill Alternative",
         url: "https://stream.radioparadise.com/mellow-128",
         cover: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=400&h=400&fit=crop",
-        genre: "Indie Rock",
         format: "Live stream",
         duration: "LIVE"
       },
@@ -283,7 +318,6 @@ export default function MusicWidget({
         artist: "Underground, Post-Punk & Rock",
         url: "https://stream.radioparadise.com/rock-128",
         cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?q=80&w=400&h=400&fit=crop",
-        genre: "Alternative Rock",
         format: "Live stream",
         duration: "LIVE"
       },
@@ -293,7 +327,6 @@ export default function MusicWidget({
         artist: "Sensuous Shoegaze & Dream Pop",
         url: "https://ice1.somafm.com/lush-128-mp3",
         cover: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?q=80&w=400&h=400&fit=crop",
-        genre: "Shoegaze",
         format: "Live stream",
         duration: "LIVE"
       }
@@ -350,6 +383,82 @@ export default function MusicWidget({
       setLocalViewMode(externalMini ? "mini" : "normal");
     }
   }, [externalMini, externalViewMode]);
+
+  useEffect(() => {
+    const migrationKey = "meowlock_preset_music_v1";
+    if (!localStorage.getItem(migrationKey)) {
+      const initialTracks = [
+        {
+          id: "lofi-stargazing",
+          name: "Stargazing (Lofi Edit)",
+          artist: "Lofi Study Club",
+          url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+          cover: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?q=80&w=400&h=400&fit=crop",
+          format: "Audio stream",
+          duration: "06:12"
+        },
+        {
+          id: "lofi-midnight",
+          name: "Midnight Coffee",
+          artist: "Retro Beats",
+          url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+          cover: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=400&h=400&fit=crop",
+          format: "Audio stream",
+          duration: "07:05"
+        },
+        {
+          id: "synth-deep",
+          name: "Deep Coding Space",
+          artist: "Synthwave Focus",
+          url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+          cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=400&h=400&fit=crop",
+          format: "Audio stream",
+          duration: "05:02"
+        },
+        {
+          id: "piano-solitude",
+          name: "Relaxing Piano Solitude",
+          artist: "Classical Dreams",
+          url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+          cover: "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?q=80&w=400&h=400&fit=crop",
+          format: "Audio stream",
+          duration: "05:38"
+        },
+        {
+          id: "rp-mellow",
+          name: "Radio Paradise (Mellow Mix)",
+          artist: "Indie, Folk & Chill Alternative",
+          url: "https://stream.radioparadise.com/mellow-128",
+          cover: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=400&h=400&fit=crop",
+          format: "Live stream",
+          duration: "LIVE"
+        },
+        {
+          id: "rp-rock",
+          name: "Radio Paradise (Rock Mix)",
+          artist: "Underground, Post-Punk & Rock",
+          url: "https://stream.radioparadise.com/rock-128",
+          cover: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?q=80&w=400&h=400&fit=crop",
+          format: "Live stream",
+          duration: "LIVE"
+        },
+        {
+          id: "somafm-lush",
+          name: "SomaFM Lush",
+          artist: "Sensuous Shoegaze & Dream Pop",
+          url: "https://ice1.somafm.com/lush-128-mp3",
+          cover: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?q=80&w=400&h=400&fit=crop",
+          format: "Live stream",
+          duration: "LIVE"
+        }
+      ];
+      setTracks(initialTracks);
+      setCurrentTrackIdx(0);
+      localStorage.setItem("focus_music_queue", JSON.stringify(initialTracks));
+      localStorage.setItem("focus_music_current_idx", "0");
+      localStorage.setItem(migrationKey, "true");
+    }
+  }, []);
 
   // iPod Classic specific states & handlers
   const [ipodStyle, setIpodStyle] = useState<"silver" | "black">("silver");
