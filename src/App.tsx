@@ -402,16 +402,15 @@ const initialProfiles: WorkspaceProfile[] = [
     blur: 15,
     overlay: 65,
     widgets: {
-
       timer: true,
       todo: true,
       notes: true,
       goals: false,
-      quote: true,
-      music: true,
-      stats: true,
-      mixer: true,
-      wellness: true
+      quote: false,
+      music: false,
+      stats: false,
+      mixer: false,
+      wellness: false
     },
     timerSettings: {
       pomodoro: 45,
@@ -437,15 +436,14 @@ const initialProfiles: WorkspaceProfile[] = [
     blur: 4,
     overlay: 25,
     widgets: {
-
       timer: true,
       todo: false,
       notes: false,
       goals: false,
-      quote: true,
+      quote: false,
       music: true,
       stats: false,
-      mixer: true,
+      mixer: false,
       wellness: false
     },
     timerSettings: {
@@ -494,7 +492,29 @@ export default function App() {
   // --- CORE STATE PERSISTENCE ---
   const [profiles, setProfiles] = useState<WorkspaceProfile[]>(() => {
     const saved = localStorage.getItem("focus_profiles");
-    return saved ? JSON.parse(saved) : initialProfiles;
+    let loaded = saved ? JSON.parse(saved) : initialProfiles;
+
+    // One-time migration to make sure we don't start with all widgets open on load/startup
+    const migratedKey = "meowlock_clean_v2";
+    if (!localStorage.getItem(migratedKey)) {
+      loaded = loaded.map((p: any) => ({
+        ...p,
+        widgets: {
+          timer: true,
+          todo: p.name === "Study Mode" || p.name === "Coding Mode",
+          notes: p.name === "Coding Mode",
+          goals: false,
+          quote: false,
+          music: p.name === "Relax Mode",
+          stats: false,
+          mixer: false,
+          wellness: false
+        }
+      }));
+      localStorage.setItem("focus_profiles", JSON.stringify(loaded));
+      localStorage.setItem(migratedKey, "true");
+    }
+    return loaded;
   });
 
   const [currentProfileName, setCurrentProfileName] = useState<string>(() => {
@@ -509,6 +529,9 @@ export default function App() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(() => {
     return localStorage.getItem("focus_active_task_id") || null;
   });
+
+  const activeProfile = profiles.find((p) => p.name === currentProfileName) || profiles[0];
+  const activeTask = tasks.find((t) => t.id === activeTaskId);
 
   const [calendarEvents, setCalendarEvents] = useState<CustomCalendarEvent[]>(() => {
     const saved = localStorage.getItem("calendar_events");
@@ -733,6 +756,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMinimalMode, setIsMinimalMode] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [focusedWidget, setFocusedWidget] = useState<string | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -743,8 +767,6 @@ export default function App() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  const [isTodoOpen, setIsTodoOpen] = useState(false);
-  const [isMusicOpen, setIsMusicOpen] = useState(false);
   const [musicViewMode, setMusicViewMode] = useState<"normal" | "mini" | "alt" | "alt_mini">("normal");
   const isMusicMini = musicViewMode === "mini" || musicViewMode === "alt_mini";
   const setIsMusicMini = (mini: boolean) => {
@@ -756,7 +778,6 @@ export default function App() {
       }
     });
   };
-  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [notesViewMode, setNotesViewMode] = useState<"normal" | "mini" | "alt" | "alt_mini">("normal");
   const isNotesMini = notesViewMode === "mini" || notesViewMode === "alt_mini";
   const setIsNotesMini = (mini: boolean) => {
@@ -768,9 +789,6 @@ export default function App() {
       }
     });
   };
-  const [isMixerOpen, setIsMixerOpen] = useState(false);
-  const [isQuoteOpen, setIsQuoteOpen] = useState(false);
-  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isStreakOpen, setIsStreakOpen] = useState(false);
   const [isStreakMini, setIsStreakMini] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -787,7 +805,6 @@ export default function App() {
   const [nasaBgExplanation, setNasaBgExplanation] = useState<string>(() => localStorage.getItem("zen_space_bg_explanation") || "");
   const [isRadioOpen, setIsRadioOpen] = useState(false);
   const [isRadioMini, setIsRadioMini] = useState(false);
-  const [isWellnessOpen, setIsWellnessOpen] = useState(false);
   const [isWeatherOpen, setIsWeatherOpen] = useState(false);
   const [isWeatherExpanded, setIsWeatherExpanded] = useState(false);
   const [isCatActive, setIsCatActive] = useState<boolean>(() => {
@@ -802,7 +819,18 @@ export default function App() {
     window.dispatchEvent(new CustomEvent("cat-active-toggle", { detail: { active: nextVal } }));
   };
 
-  const anyWidgetOpen = isTodoOpen || isMusicOpen || isNotesOpen || isMixerOpen || isStatsOpen || isStreakOpen || isCalendarOpen || isSpaceExplorerOpen || isWellnessOpen || isWeatherOpen || isRadioOpen;
+  const anyWidgetOpen = 
+    !!activeProfile?.widgets?.todo || 
+    !!activeProfile?.widgets?.notes || 
+    !!activeProfile?.widgets?.music || 
+    !!activeProfile?.widgets?.mixer || 
+    !!activeProfile?.widgets?.stats || 
+    !!activeProfile?.widgets?.wellness || 
+    isStreakOpen || 
+    isCalendarOpen || 
+    isSpaceExplorerOpen || 
+    isWeatherOpen || 
+    isRadioOpen;
 
   const closeAllWidgets = () => {
     // 1. Close local-only state widgets
@@ -822,14 +850,6 @@ export default function App() {
       });
       updateProfileField("widgets", updatedWidgets);
     }
-
-    // 3. Close profile-tied local state widgets
-    setIsTodoOpen(false);
-    setIsMusicOpen(false);
-    setIsNotesOpen(false);
-    setIsMixerOpen(false);
-    setIsStatsOpen(false);
-    setIsWellnessOpen(false);
   };
 
   useEffect(() => {
@@ -843,7 +863,19 @@ export default function App() {
   // Lock body scroll on mobile when any modal/widget is open
   useEffect(() => {
     if (isMobile) {
-      const isAnyModalOpen = isTodoOpen || isNotesOpen || isCalendarOpen || isSpaceExplorerOpen || isMixerOpen || isMusicOpen || isRadioOpen || isStatsOpen || isStreakOpen || isWellnessOpen || isSidebarOpen || isWeatherOpen;
+      const isAnyModalOpen = 
+        !!activeProfile?.widgets?.todo || 
+        !!activeProfile?.widgets?.notes || 
+        !!activeProfile?.widgets?.music || 
+        !!activeProfile?.widgets?.mixer || 
+        !!activeProfile?.widgets?.stats || 
+        !!activeProfile?.widgets?.wellness || 
+        isCalendarOpen || 
+        isSpaceExplorerOpen || 
+        isRadioOpen || 
+        isStreakOpen || 
+        isSidebarOpen || 
+        isWeatherOpen;
       if (isAnyModalOpen) {
         document.body.style.overflow = "hidden";
       } else {
@@ -855,7 +887,21 @@ export default function App() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isMobile, isTodoOpen, isNotesOpen, isCalendarOpen, isSpaceExplorerOpen, isMixerOpen, isMusicOpen, isRadioOpen, isStatsOpen, isStreakOpen, isWellnessOpen, isSidebarOpen, isWeatherOpen]);
+  }, [
+    isMobile, 
+    isCalendarOpen, 
+    isSpaceExplorerOpen, 
+    isRadioOpen, 
+    isStreakOpen, 
+    isSidebarOpen, 
+    isWeatherOpen,
+    activeProfile?.widgets?.todo,
+    activeProfile?.widgets?.notes,
+    activeProfile?.widgets?.music,
+    activeProfile?.widgets?.mixer,
+    activeProfile?.widgets?.stats,
+    activeProfile?.widgets?.wellness
+  ]);
 
   const [currentRadioStation, setCurrentRadioStation] = useState<any | null>(() => {
     const saved = localStorage.getItem("current_radio_station");
@@ -875,8 +921,8 @@ export default function App() {
   const [localBgType, setLocalBgType] = useState<"image" | "video">("image");
   const [isDraggingBgFile, setIsDraggingBgFile] = useState(false);
 
-  const activeProfile = profiles.find((p) => p.name === currentProfileName) || profiles[0];
-  const activeTask = tasks.find((t) => t.id === activeTaskId);
+  const isLeftWidgetFocused = ["todo", "notes", "calendar", "spaceExplorer"].includes(focusedWidget || "");
+  const isRightWidgetFocused = ["mixer", "music", "radio", "stats", "streak"].includes(focusedWidget || "");
 
   // Load custom background from IndexedDB on initial mount
   useEffect(() => {
@@ -1089,19 +1135,6 @@ export default function App() {
       [key]: nextVal
     });
   };
-
-  // Sync widgets when current profile or its widgets change
-  useEffect(() => {
-    if (activeProfile?.widgets) {
-      setIsTodoOpen(!!activeProfile.widgets.todo);
-      setIsMusicOpen(!!activeProfile.widgets.music);
-      setIsNotesOpen(!!activeProfile.widgets.notes);
-      setIsMixerOpen(!!activeProfile.widgets.mixer);
-      setIsStatsOpen(!!activeProfile.widgets.stats);
-      setIsWellnessOpen(!!activeProfile.widgets.wellness);
-      setIsQuoteOpen(!!activeProfile.widgets.quote);
-    }
-  }, [activeProfile?.widgets, activeProfile?.name]);
 
   const handleSelectProfile = (name: string) => {
     setCurrentProfileName(name);
@@ -2241,22 +2274,33 @@ export default function App() {
       <main className="flex-1 relative z-10 flex flex-col lg:flex-row w-full h-full lg:overflow-hidden overflow-y-auto p-4 lg:p-6 gap-6">
         {/* Mobile Backdrop Overlay */}
         <AnimatePresence>
-          {isMobile && (isTodoOpen || isNotesOpen || isCalendarOpen || isSpaceExplorerOpen || isMixerOpen || isMusicOpen || isRadioOpen || isStatsOpen || isStreakOpen || isWellnessOpen) && (
+          {isMobile && (
+            !!activeProfile.widgets.todo || 
+            !!activeProfile.widgets.notes || 
+            !!activeProfile.widgets.music || 
+            !!activeProfile.widgets.mixer || 
+            !!activeProfile.widgets.stats || 
+            !!activeProfile.widgets.wellness || 
+            isCalendarOpen || 
+            isSpaceExplorerOpen || 
+            isRadioOpen || 
+            isStreakOpen
+          ) && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
               onClick={() => {
-                if (isTodoOpen) toggleWidget("todo");
-                if (isNotesOpen) toggleWidget("notes");
+                if (activeProfile.widgets.todo) toggleWidget("todo");
+                if (activeProfile.widgets.notes) toggleWidget("notes");
                 if (isCalendarOpen) setIsCalendarOpen(false);
                 if (isSpaceExplorerOpen) setIsSpaceExplorerOpen(false);
-                if (isMixerOpen) toggleWidget("mixer");
-                if (isMusicOpen) toggleWidget("music");
+                if (activeProfile.widgets.mixer) toggleWidget("mixer");
+                if (activeProfile.widgets.music) toggleWidget("music");
                 if (isRadioOpen) setIsRadioOpen(false);
-                if (isStatsOpen) toggleWidget("stats");
+                if (activeProfile.widgets.stats) toggleWidget("stats");
                 if (isStreakOpen) setIsStreakOpen(false);
-                if (isWellnessOpen) toggleWidget("wellness");
+                if (activeProfile.widgets.wellness) toggleWidget("wellness");
               }}
               className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm cursor-pointer pointer-events-auto"
             />
@@ -2264,16 +2308,20 @@ export default function App() {
         </AnimatePresence>
 
         {/* --- LEFT SIDE FLOATING STACK --- */}
-        <div className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed left-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
+        <div 
+          className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed left-6 top-24 bottom-28 w-80 md:w-96 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}
+          style={isMobile ? {} : { zIndex: isLeftWidgetFocused ? 30 : 20 }}
+        >
           <AnimatePresence mode="popLayout">
             {/* 1. Tasks Checklist Panel */}
-            {isTodoOpen && (
+            {!!activeProfile.widgets.todo && (
               <motion.div
                 key="todo-widget"
+                onPointerDown={() => setFocusedWidget("todo")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title="Tasks.exe"
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
                 style={isMobile ? {
@@ -2285,12 +2333,13 @@ export default function App() {
                   height: '520px',
                   minWidth: '320px',
                   minHeight: '300px',
-                  borderRadius: `${windowRoundness}px`
+                  borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "todo" ? 30 : 10
                 }}
                 initial={{ opacity: 0, scale: 0.95, x: -40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 <button
                   onClick={() => toggleWidget("todo")}
@@ -2329,13 +2378,14 @@ export default function App() {
 
           <AnimatePresence mode="popLayout">
             {/* 2. Scratch Notes Panel */}
-            {isNotesOpen && (
+            {!!activeProfile.widgets.notes && (
               <motion.div
                 key="notes-widget"
+                onPointerDown={() => setFocusedWidget("notes")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={notesViewMode === "mini" ? "Sticky_Note.exe" : (notesViewMode === "alt" ? "Vintage_Journal.dat" : (notesViewMode === "alt_mini" ? "Compact_Journal.dat" : "Notepad.exe"))}
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : (notesViewMode === "alt" || notesViewMode === "alt_mini" ? "pointer-events-auto relative flex flex-col p-0 transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
                   isNotesMini ? "p-2" : "p-5"
@@ -2350,6 +2400,7 @@ export default function App() {
                   minWidth: notesViewMode === "mini" ? '180px' : (notesViewMode === "alt" ? '820px' : (notesViewMode === "alt_mini" ? '460px' : '280px')),
                   minHeight: notesViewMode === "mini" ? '120px' : (notesViewMode === "alt" ? '550px' : (notesViewMode === "alt_mini" ? '355px' : '240px')),
                   borderRadius: (notesViewMode === "alt" || notesViewMode === "alt_mini") ? "0px" : `${windowRoundness}px`,
+                  zIndex: focusedWidget === "notes" ? 30 : 10,
                   transitionProperty: 'width, height, min-width, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
@@ -2357,7 +2408,7 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.95, x: -40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 {(notesViewMode === "normal" || isMobile) && (
                   <button
@@ -2387,10 +2438,11 @@ export default function App() {
             {isCalendarOpen && (
               <motion.div
                 key="calendar-widget"
+                onPointerDown={() => setFocusedWidget("calendar")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title="Calendar_Planner.exe"
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-[#0a0a0a]/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
                 style={isMobile ? {
@@ -2403,6 +2455,7 @@ export default function App() {
                   minWidth: '350px',
                   minHeight: '400px',
                   borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "calendar" ? 30 : 10,
                   transitionProperty: 'height, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
@@ -2410,7 +2463,7 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.95, x: -40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 <button
                   onClick={() => setIsCalendarOpen(false)}
@@ -2435,10 +2488,11 @@ export default function App() {
             {isSpaceExplorerOpen && (
               <motion.div
                 key="space-explorer-widget"
+                onPointerDown={() => setFocusedWidget("spaceExplorer")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title="Space_Explorer.exe"
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-[#0a0a0a]/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
                 style={isMobile ? {
@@ -2451,6 +2505,7 @@ export default function App() {
                   minWidth: '500px',
                   minHeight: '550px',
                   borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "spaceExplorer" ? 30 : 10,
                   transitionProperty: 'height, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
@@ -2458,7 +2513,7 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.95, x: -40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 <button
                   onClick={() => setIsSpaceExplorerOpen(false)}
@@ -2615,7 +2670,7 @@ export default function App() {
         </AnimatePresence>
 
         <WellnessWidget 
-          isOpen={isWellnessOpen}
+          isOpen={!!activeProfile.widgets.wellness}
           onClose={() => toggleWidget("wellness")}
           settings={activeProfile.wellnessSettings}
           onSettingsChange={(settings) => updateProfileField("wellnessSettings", settings)}
@@ -2624,16 +2679,20 @@ export default function App() {
         
 
         {/* --- RIGHT SIDE FLOATING STACK --- */}
-        <div className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed right-6 top-24 bottom-28 w-80 md:w-96 z-20 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}>
+        <div 
+          className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed right-6 top-24 bottom-28 w-80 md:w-96 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}
+          style={isMobile ? {} : { zIndex: isRightWidgetFocused ? 30 : 20 }}
+        >
           <AnimatePresence mode="popLayout">
             {/* 1. Ambient sound procedural Mixer */}
-            {isMixerOpen && (
+            {!!activeProfile.widgets.mixer && (
               <motion.div
                 key="mixer-widget"
+                onPointerDown={() => setFocusedWidget("mixer")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title="SoundMixer.exe"
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
                 style={isMobile ? {
@@ -2645,7 +2704,8 @@ export default function App() {
                   height: '320px',
                   minWidth: '280px',
                   minHeight: '180px',
-                  borderRadius: `${windowRoundness}px`
+                  borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "mixer" ? 30 : 10
                 }}
                 initial={{ opacity: 0, scale: 0.95, x: 40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
@@ -2670,13 +2730,14 @@ export default function App() {
 
           <AnimatePresence mode="popLayout">
             {/* 2. Audio Player integration (YouTube/Spotify) */}
-            {isMusicOpen && (
+            {!!activeProfile.widgets.music && (
               <motion.div
                 key="music-widget"
+                onPointerDown={() => setFocusedWidget("music")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={musicViewMode === "mini" ? "Music_Mini.exe" : (musicViewMode === "alt" ? "iPod_Classic.exe" : (musicViewMode === "alt_mini" ? "iPod_Nano.exe" : "Music_Player.exe"))}
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
                   musicViewMode === "mini" ? "p-2" : (musicViewMode === "alt" ? "p-3" : (musicViewMode === "alt_mini" ? "p-2" : "p-5"))
@@ -2691,6 +2752,7 @@ export default function App() {
                   minWidth: musicViewMode === "mini" ? '380px' : (musicViewMode === "alt" ? '360px' : (musicViewMode === "alt_mini" ? '460px' : '380px')),
                   minHeight: musicViewMode === "mini" ? '90px' : (musicViewMode === "alt" ? '610px' : (musicViewMode === "alt_mini" ? '255px' : '580px')),
                   borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "music" ? 30 : 10,
                   transitionProperty: 'width, height, min-width, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
@@ -2698,7 +2760,7 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.95, x: 40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 <button
                   onClick={() => toggleWidget("music")}
@@ -2726,10 +2788,11 @@ export default function App() {
             {isRadioOpen && (
               <motion.div
                 key="radio-widget"
+                onPointerDown={() => setFocusedWidget("radio")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={isRadioMini ? undefined : "Radio_Underground.exe"}
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window transition-all duration-300" : `pointer-events-auto relative bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col transition-all duration-300 ${
                   isRadioMini ? "p-2.5" : "retro-window p-5"
@@ -2743,12 +2806,13 @@ export default function App() {
                   height: isRadioMini ? '210px' : '520px',
                   minWidth: isRadioMini ? '240px' : '380px',
                   minHeight: isRadioMini ? '210px' : '400px',
-                  borderRadius: `${windowRoundness}px`
+                  borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "radio" ? 30 : 10
                 }}
                 initial={{ opacity: 0, scale: 0.95, y: 40 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.92, y: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 {(!isRadioMini || isMobile) && (
                   <button
@@ -2780,13 +2844,14 @@ export default function App() {
 
           <AnimatePresence mode="popLayout">
             {/* 3. Study Session History & analytics */}
-            {isStatsOpen && (
+            {!!activeProfile.widgets.stats && (
               <motion.div
                 key="stats-widget"
+                onPointerDown={() => setFocusedWidget("stats")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title="Statistics.exe"
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto relative bg-neutral-950/50 retro-window backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col"}
                 style={isMobile ? {
@@ -2798,12 +2863,13 @@ export default function App() {
                   height: '350px',
                   minWidth: '280px',
                   minHeight: '180px',
-                  borderRadius: `${windowRoundness}px`
+                  borderRadius: `${windowRoundness}px`,
+                  zIndex: focusedWidget === "stats" ? 30 : 10
                 }}
                 initial={{ opacity: 0, scale: 0.95, x: 40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 <button
                   onClick={() => toggleWidget("stats")}
@@ -2823,10 +2889,11 @@ export default function App() {
             {isStreakOpen && (
               <motion.div
                 key="streak-widget"
+                onPointerDown={() => setFocusedWidget("streak")}
                 drag={isMobile ? false : true}
                 dragMomentum={true}
-                dragElastic={0.1}
-                dragTransition={{ power: 0.03, timeConstant: 1200 }}
+                dragElastic={0.06}
+                dragTransition={{ power: 0.06, timeConstant: 180 }}
                 data-window-title={isStreakMini ? "StarStreakPin" : "StellarStreak.exe"}
                 className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col justify-center items-center retro-window" : `pointer-events-auto relative bg-neutral-950/60 retro-window backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col justify-center items-center ${
                   isStreakMini ? "p-1 overflow-hidden" : "p-5"
@@ -2840,12 +2907,13 @@ export default function App() {
                   height: isStreakMini ? '110px' : '425px',
                   minWidth: isStreakMini ? '110px' : '320px',
                   minHeight: isStreakMini ? '110px' : '350px',
-                  borderRadius: isStreakMini ? '9999px' : `${windowRoundness}px`
+                  borderRadius: isStreakMini ? '9999px' : `${windowRoundness}px`,
+                  zIndex: focusedWidget === "streak" ? 30 : 10
                 }}
                 initial={{ opacity: 0, scale: 0.95, x: 40 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
-                transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
+                transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
                 {(!isStreakMini || isMobile) && (
                   <button
@@ -2891,7 +2959,7 @@ export default function App() {
             <button
               onClick={() => toggleWidget("todo")}
               className={`p-2 rounded-lg transition-all relative cursor-pointer hover:bg-white/10 ${
-                isTodoOpen ? "text-white" : "text-gray-400 hover:text-white"
+                activeProfile.widgets.todo ? "text-white" : "text-gray-400 hover:text-white"
               }`}
               title="Daily Focus Checklist"
             >
@@ -2903,7 +2971,7 @@ export default function App() {
             <button
               onClick={() => toggleWidget("music")}
               className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-                isMusicOpen ? "text-white" : "text-gray-400 hover:text-white"
+                activeProfile.widgets.music ? "text-white" : "text-gray-400 hover:text-white"
               }`}
               title="Audio Player"
             >
@@ -2921,7 +2989,7 @@ export default function App() {
             <button
               onClick={() => toggleWidget("notes")}
               className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-                isNotesOpen ? "text-white" : "text-gray-400 hover:text-white"
+                activeProfile.widgets.notes ? "text-white" : "text-gray-400 hover:text-white"
               }`}
               title="Scratchpad Notes Editor"
             >
@@ -2946,9 +3014,9 @@ export default function App() {
               <Telescope className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setIsWellnessOpen(!isWellnessOpen)}
+              onClick={() => toggleWidget("wellness")}
               className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-                isWellnessOpen ? "text-rose-400" : "text-gray-400 hover:text-white"
+                activeProfile.widgets.wellness ? "text-rose-400" : "text-gray-400 hover:text-white"
               }`}
               title="Wellness & Habits"
             >
@@ -2982,7 +3050,7 @@ export default function App() {
             <button
               onClick={() => toggleWidget("mixer")}
               className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-                isMixerOpen ? "bg-[#7c3aed] text-white" : "text-gray-400 hover:text-white"
+                activeProfile.widgets.mixer ? "bg-[#7c3aed] text-white" : "text-gray-400 hover:text-white"
               }`}
               title="Layer Ambient Noise"
             >
@@ -3006,7 +3074,7 @@ export default function App() {
             <button
               onClick={() => toggleWidget("stats")}
               className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-                isStatsOpen ? "text-white" : "text-gray-400 hover:text-white"
+                activeProfile.widgets.stats ? "text-white" : "text-gray-400 hover:text-white"
               }`}
               title="Daily Focus Analytics"
             >
@@ -3057,7 +3125,7 @@ export default function App() {
           <button
             onClick={() => toggleWidget("todo")}
             className={`p-3 rounded-lg transition-all relative shrink-0 cursor-pointer ${
-              isTodoOpen ? "text-white bg-white/10" : "text-gray-400"
+              activeProfile.widgets.todo ? "text-white bg-white/10" : "text-gray-400"
             }`}
             title="Daily Focus Checklist"
           >
@@ -3082,7 +3150,7 @@ export default function App() {
           <button
             onClick={() => toggleWidget("music")}
             className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
-              isMusicOpen ? "text-white bg-white/10" : "text-gray-400"
+              activeProfile.widgets.music ? "text-white bg-white/10" : "text-gray-400"
             }`}
             title="Audio Player"
           >
@@ -3093,7 +3161,7 @@ export default function App() {
           <button
             onClick={() => toggleWidget("mixer")}
             className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
-              isMixerOpen ? "text-white bg-white/10" : "text-gray-400"
+              activeProfile.widgets.mixer ? "text-white bg-white/10" : "text-gray-400"
             }`}
             title="Layer Ambient Noise"
           >
@@ -3115,7 +3183,7 @@ export default function App() {
           <button
             onClick={() => toggleWidget("notes")}
             className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
-              isNotesOpen ? "text-white bg-white/10" : "text-gray-400"
+              activeProfile.widgets.notes ? "text-white bg-white/10" : "text-gray-400"
             }`}
             title="Scratchpad Notes Editor"
           >
@@ -3137,7 +3205,7 @@ export default function App() {
           <button
             onClick={() => toggleWidget("stats")}
             className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
-              isStatsOpen ? "text-white bg-white/10" : "text-gray-400"
+              activeProfile.widgets.stats ? "text-white bg-white/10" : "text-gray-400"
             }`}
             title="Daily Focus Analytics"
           >
@@ -3179,9 +3247,9 @@ export default function App() {
 
           {/* 12. Wellness */}
           <button
-            onClick={() => setIsWellnessOpen(!isWellnessOpen)}
+            onClick={() => toggleWidget("wellness")}
             className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
-              isWellnessOpen ? "text-rose-400 bg-white/10" : "text-gray-400"
+              activeProfile.widgets.wellness ? "text-rose-400 bg-white/10" : "text-gray-400"
             }`}
             title="Wellness & Habits"
           >

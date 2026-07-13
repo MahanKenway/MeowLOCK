@@ -1965,9 +1965,9 @@ app.get("/auth/spotify/callback", async (req, res) => {
         <head><meta charset="utf-8"/><title>Spotify Error</title></head>
         <body style="background-color: #09090b; color: #ef4444; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
           <div style="text-align: center; max-width: 400px; padding: 20px;">
-            <h2>خطا در اتصال به اسپاتیفای</h2>
+            <h2>Spotify Connection Error</h2>
             <p>${error}</p>
-            <p style="color: #a1a1aa; font-size: 13px;">این پنجره به زودی بسته می‌شود.</p>
+            <p style="color: #a1a1aa; font-size: 13px;">This window will close shortly.</p>
           </div>
           <script>
             if (window.opener) {
@@ -2053,8 +2053,8 @@ app.get("/auth/spotify/callback", async (req, res) => {
         </head>
         <body>
           <div class="spinner"></div>
-          <h2>اتصال با موفقیت انجام شد!</h2>
-          <p>در حال انتقال اطلاعات به برنامه... این پنجره به زودی بسته می‌شود.</p>
+          <h2>Connection Successful!</h2>
+          <p>Transferring data to the app... This window will close shortly.</p>
           <script>
             if (window.opener) {
               window.opener.postMessage({
@@ -2082,9 +2082,9 @@ app.get("/auth/spotify/callback", async (req, res) => {
         <head><meta charset="utf-8"/><title>Spotify Exchange Error</title></head>
         <body style="background-color: #09090b; color: #ef4444; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
           <div style="text-align: center; max-width: 400px; padding: 20px;">
-            <h2>خطا در دریافت کلید اتصال</h2>
+            <h2>Error Retrieving Connection Token</h2>
             <p>${err.message}</p>
-            <p style="color: #a1a1aa; font-size: 13px;">این پنجره به زودی بسته می‌شود.</p>
+            <p style="color: #a1a1aa; font-size: 13px;">This window will close shortly.</p>
           </div>
           <script>
             if (window.opener) {
@@ -2141,6 +2141,26 @@ app.post("/api/auth/spotify/refresh", async (req, res) => {
     console.error("Error refreshing Spotify tokens:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ----------------- SPOTIFY HEARTBEAT / SIMULATED ACTIVITY ENDPOINT -----------------
+app.post("/api/spotify/heartbeat", (req, res) => {
+  const { trackName, artist, isPlaying, mode, deviceId } = req.body;
+  
+  if (isPlaying) {
+    console.log(`[Spotify Heartbeat] Simulated listen of "${trackName}" by "${artist}" [Mode: ${mode || "silent"}] (No real playback bandwidth used)`);
+  } else {
+    console.log(`[Spotify Heartbeat] Player is idle / paused.`);
+  }
+
+  res.json({
+    status: "success",
+    received: true,
+    timestamp: Date.now(),
+    message: isPlaying 
+      ? `Successfully simulated heartbeat for "${trackName}".` 
+      : "Logged idle/paused state successfully."
+  });
 });
 
 // ----------------- STATIC FILES & VITE MIDDLEWARE -----------------

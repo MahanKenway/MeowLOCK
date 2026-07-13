@@ -542,8 +542,8 @@ export default function TimerWidget({
     <motion.div
       drag={isMobile ? false : true}
       dragMomentum={true}
-      dragElastic={0.1}
-      dragTransition={{ power: 0.03, timeConstant: 1200 }}
+      dragElastic={0.06}
+      dragTransition={{ power: 0.06, timeConstant: 180 }}
       id="timer-widget"
       data-window-title="Timer.exe"
       className={isMobile ? "relative w-full z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-6 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window" : "absolute top-6 right-6 z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-8 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window cursor-move"}

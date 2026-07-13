@@ -858,6 +858,47 @@ export default function MusicWidget({
     return () => window.removeEventListener("message", handleSpotifyMessage);
   }, []);
 
+  // 5. Periodic Activity Heartbeat to backend API route
+  useEffect(() => {
+    if (!spotifyTokens) return;
+
+    let active = true;
+    const sendHeartbeat = async () => {
+      try {
+        const token = await getOrRefreshAccessToken();
+        if (!token || !active) return;
+
+        await fetch("/api/spotify/heartbeat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            trackName: currentTrack?.name || "None",
+            artist: currentTrack?.artist || "None",
+            isPlaying: isPlaying && !isResolvingUrl,
+            mode: spotifyMode,
+            deviceId: spotifyDeviceId,
+            timestamp: Date.now()
+          })
+        });
+      } catch (err) {
+        console.error("Failed to send Spotify heartbeat status:", err);
+      }
+    };
+
+    // Send immediate heartbeat on state changes
+    sendHeartbeat();
+
+    // Send status heartbeats periodically every 30 seconds to simulate constant active playback on backend
+    const interval = setInterval(sendHeartbeat, 30000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [isPlaying, currentTrack?.id, isResolvingUrl, spotifyTokens, spotifyMode, spotifyDeviceId]);
+
   const handleConnectSpotify = async () => {
     try {
       setSpotifyConnecting(true);
@@ -875,11 +916,11 @@ export default function MusicWidget({
       );
 
       if (!popup) {
-        alert("لطفاً اجازه باز شدن پنجره پاپ‌آپ (Pop-up) را به مرورگر خود بدهید تا پنجره اتصال اسپاتیفای باز شود.");
+        alert("Please allow pop-ups for this site so that the Spotify connection window can open.");
       }
     } catch (err) {
       console.error(err);
-      alert("خطا در ایجاد اتصال اسپاتیفای. لطفاً متغیرهای محیطی SPOTIFY_CLIENT_ID را بررسی کنید.");
+      alert("Error connecting to Spotify. Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server.");
     } finally {
       setSpotifyConnecting(false);
     }
@@ -2860,9 +2901,9 @@ export default function MusicWidget({
           />
         ) : (
           /* Spotify Tab content */
-          <div className="flex-1 flex flex-col justify-start min-h-0 w-full overflow-y-auto no-scrollbar py-1 text-right" dir="rtl">
+          <div className="flex-1 flex flex-col justify-start min-h-0 w-full overflow-y-auto no-scrollbar py-1 text-left">
             {spotifyTokens ? (
-              <div className="space-y-3.5">
+              <div className="space-y-3.5 text-left">
                 {/* Profile header */}
                 <div className="flex items-center gap-3 bg-white/5 p-3 rounded-2xl border border-white/5">
                   {spotifyUserProfile?.images?.[0]?.url ? (
@@ -2876,23 +2917,23 @@ export default function MusicWidget({
                       {spotifyUserProfile?.display_name?.charAt(0) || "S"}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0 mr-1.5">
-                    <p className="text-[10px] text-gray-400 leading-none">متصل به حساب اسپاتیفای</p>
+                  <div className="flex-1 min-w-0 ml-1.5 text-left">
+                    <p className="text-[10px] text-gray-400 leading-none">Connected to Spotify</p>
                     <p className="text-xs font-bold text-white truncate mt-1">
-                      {spotifyUserProfile?.display_name || "کاربر اسپاتیفای"}
+                      {spotifyUserProfile?.display_name || "Spotify User"}
                     </p>
                   </div>
                   <button
                     onClick={handleDisconnectSpotify}
                     className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-[10px] font-bold transition-all cursor-pointer shrink-0"
                   >
-                    قطع اتصال
+                    Disconnect
                   </button>
                 </div>
 
                 {/* Modes selector */}
-                <div className="bg-neutral-900/60 p-3 rounded-2xl border border-white/5 space-y-2">
-                  <p className="text-[11px] font-bold text-gray-300">حالت شبیه‌سازی پخش:</p>
+                <div className="bg-neutral-900/60 p-3 rounded-2xl border border-white/5 space-y-2 text-left">
+                  <p className="text-[11px] font-bold text-gray-300">Playback Simulation Mode:</p>
                   
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -2906,8 +2947,8 @@ export default function MusicWidget({
                           : "bg-white/3 border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
                       }`}
                     >
-                      <span className="text-[10px] font-black">پخش بی‌صدا (پرمیوم)</span>
-                      <span className="text-[8px] opacity-75 leading-tight">پخش کاملاً بی‌صدا در پس‌زمینه</span>
+                      <span className="text-[10px] font-black">Silent Playback (Premium)</span>
+                      <span className="text-[8px] opacity-75 leading-tight">Fully silent background playback</span>
                     </button>
 
                     <button
@@ -2921,8 +2962,8 @@ export default function MusicWidget({
                           : "bg-white/3 border-transparent text-gray-400 hover:bg-white/5 hover:text-white"
                       }`}
                     >
-                      <span className="text-[10px] font-black">کنترلر خارجی (رایگان)</span>
-                      <span className="text-[8px] opacity-75 leading-tight">همگام‌سازی با برنامه اصلی</span>
+                      <span className="text-[10px] font-black">External Controller (Free)</span>
+                      <span className="text-[8px] opacity-75 leading-tight">Sync status with active tracks</span>
                     </button>
                   </div>
                 </div>
@@ -2936,7 +2977,7 @@ export default function MusicWidget({
                   {spotifyFakingStatus === "searching" && (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-                      <p className="text-xs font-bold text-gray-300">در حال جستجوی موزیک در اسپاتیفای...</p>
+                      <p className="text-xs font-bold text-gray-300">Searching track on Spotify...</p>
                       <p className="text-[9px] text-gray-500 font-mono uppercase tracking-wider">{currentTrack.name}</p>
                     </div>
                   )}
@@ -2958,7 +2999,7 @@ export default function MusicWidget({
 
                       <div className="text-center w-full max-w-[210px]">
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#1ED760] text-[8px] font-black leading-none mb-1.5 animate-pulse">
-                          ● در حال ثبت لیسنینگ بی‌صدا
+                          ● Recording Silent Listen & Heartbeat
                         </span>
                         <p className="text-xs font-bold text-white truncate leading-snug select-text">
                           {spotifyCurrentTrack.name}
@@ -2970,7 +3011,7 @@ export default function MusicWidget({
 
                       {spotifyMode === "silent" && !spotifyDeviceId && (
                         <p className="text-[8px] text-amber-400 font-bold leading-tight mt-1 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/15">
-                          توجیه: پلیر پس‌زمینه در حال همگام‌سازی اولیه است.
+                          Info: Background player is initializing sync.
                         </p>
                       )}
                     </div>
@@ -2981,17 +3022,17 @@ export default function MusicWidget({
                       <div className="w-10 h-10 rounded-full bg-zinc-900/80 border border-white/5 flex items-center justify-center text-gray-400 shadow-inner">
                         <Pause className="w-4 h-4" />
                       </div>
-                      <p className="text-xs font-bold text-gray-400">شبیه‌سازی پخش موقتاً متوقف شد</p>
-                      <p className="text-[8px] text-gray-600 leading-tight">موزیک پلیر فعلی شما در حالت توقف است.</p>
+                      <p className="text-xs font-bold text-gray-400">Simulation Paused</p>
+                      <p className="text-[8px] text-gray-600 leading-tight">Your active workspace music player is paused.</p>
                     </div>
                   )}
 
                   {spotifyFakingStatus === "failed" && (
                     <div className="flex flex-col items-center gap-1.5 text-center px-4 py-2">
                       <span className="text-amber-500 font-bold text-sm">⚠</span>
-                      <p className="text-xs font-bold text-gray-400">موزیک در بانک اطلاعات اسپاتیفای یافت نشد</p>
+                      <p className="text-xs font-bold text-gray-400">Track Not Found on Spotify</p>
                       <p className="text-[9px] text-gray-500">
-                        آهنگ "{currentTrack.name}" روی اسپاتیفای پیدا نشد یا اسم آن با الگو همخوانی ندارد.
+                        Song "{currentTrack.name}" could not be matched on Spotify.
                       </p>
                     </div>
                   )}
@@ -2999,17 +3040,17 @@ export default function MusicWidget({
                   {spotifyFakingStatus === "idle" && (
                     <div className="flex flex-col items-center gap-2.5 text-center py-5">
                       <Music className="w-8 h-8 text-emerald-500 animate-pulse opacity-40" />
-                      <p className="text-xs font-bold text-gray-400">منتظر شروع پخش پلیر اصلی...</p>
+                      <p className="text-xs font-bold text-gray-400">Waiting for local player...</p>
                       <p className="text-[9px] text-gray-500 leading-snug">
-                        یک آهنگ از لیست پخش را اجرا کنید تا فیک کردن اسپاتیفای فعال شود.
+                        Play any track in the queue to trigger the Spotify background simulation.
                       </p>
                     </div>
                   )}
                 </div>
 
                 {/* Info Tip */}
-                <div className="bg-white/2 p-3 rounded-2xl border border-white/5 text-[9px] text-gray-400 leading-relaxed text-right">
-                  💡 **نکته هوشمند**: در حالت پرمیوم (شبیه‌ساز بی‌صدا)، یک کارت پخش جدید به نام **"Zen Workspace"** به صورت نامرئی و بی‌صدا در پس‌زمینه مرورگر فعال شده و لیسنینگ آمار شما را افزایش می‌دهد بدون اینکه صداهای موزیک لوفی یا تمرکزی شما قطع شوند!
+                <div className="bg-white/2 p-3 rounded-2xl border border-white/5 text-[9px] text-gray-400 leading-relaxed text-left">
+                  💡 **Smart Tip**: In Premium (Silent Playback) mode, a background playback session named **"Zen Workspace"** runs completely silently to boost your listening stats without interfering with your active lofi/focus audio streams!
                 </div>
               </div>
             ) : (
@@ -3021,14 +3062,14 @@ export default function MusicWidget({
                   </svg>
                 </div>
 
-                <h3 className="text-sm font-black text-white">افزایش ساعت لیسنینگ اسپاتیفای 🚀</h3>
+                <h3 className="text-sm font-black text-white">Boost Spotify Listening Hours 🚀</h3>
                 
                 <p className="text-[11px] text-gray-300 leading-relaxed mt-2.5 max-w-[280px]">
-                  دوست داری بدون اینکه موزیک‌های واقعی اسپاتیفای صدا بدن و با آهنگ‌های تمرکزی و لوفی پلیرت تداخل داشته باشن، ساعت گوش دادنت در اکانت اسپاتیفای (برایWrapped و آمار فعالیت) بالا بره؟
+                  Want to increase your Spotify listening stats (for Spotify Wrapped and activity logs) without actual audio playing and interfering with your workspace focus and lofi tracks?
                 </p>
 
                 <p className="text-[10px] text-gray-400 mt-2 max-w-[280px]">
-                  با اتصال اسپاتیفای، هر زمان موزیکی در این برنامه پخش می‌کنی، به صورت کاملاً خودکار و **بی‌صدا** در پس‌زمینه اکانتت ثبت و استریم می‌شود!
+                  By linking your Spotify account, whenever you play a track inside this Zen Workspace, a matching track is streamed **silently** on your Spotify account completely in the background!
                 </p>
 
                 <button
@@ -3039,10 +3080,10 @@ export default function MusicWidget({
                   {spotifyConnecting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>در حال اتصال...</span>
+                      <span>Connecting...</span>
                     </>
                   ) : (
-                    <span>اتصال به حساب اسپاتیفای</span>
+                    <span>Link Spotify Account</span>
                   )}
                 </button>
               </div>

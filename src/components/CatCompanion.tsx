@@ -1128,7 +1128,9 @@ export default function CatCompanion() {
       {/* FLOATING INTERACTIVE COMPANION (DRAGGABLE) */}
       <motion.div
         drag
-        dragMomentum={false}
+        dragMomentum={true}
+        dragElastic={0.06}
+        dragTransition={{ power: 0.08, timeConstant: 200 }}
         onDragStart={() => setIsDragging(true)}
         onDragEnd={() => setTimeout(() => setIsDragging(false), 100)}
         style={{ x: catPos.x, y: catPos.y }}
