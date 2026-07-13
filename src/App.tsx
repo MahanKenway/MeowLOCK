@@ -2401,7 +2401,7 @@ export default function App() {
                   minHeight: notesViewMode === "mini" ? '120px' : (notesViewMode === "alt" ? '550px' : (notesViewMode === "alt_mini" ? '355px' : '240px')),
                   borderRadius: (notesViewMode === "alt" || notesViewMode === "alt_mini") ? "0px" : `${windowRoundness}px`,
                   zIndex: focusedWidget === "notes" ? 30 : 10,
-                  transitionProperty: 'width, height, min-width, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
+                  transitionProperty: 'background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
                 }}
@@ -2456,7 +2456,7 @@ export default function App() {
                   minHeight: '400px',
                   borderRadius: `${windowRoundness}px`,
                   zIndex: focusedWidget === "calendar" ? 30 : 10,
-                  transitionProperty: 'height, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
+                  transitionProperty: 'background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
                 }}
@@ -2506,7 +2506,7 @@ export default function App() {
                   minHeight: '550px',
                   borderRadius: `${windowRoundness}px`,
                   zIndex: focusedWidget === "spaceExplorer" ? 30 : 10,
-                  transitionProperty: 'height, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
+                  transitionProperty: 'background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
                 }}
@@ -2753,7 +2753,7 @@ export default function App() {
                   minHeight: musicViewMode === "mini" ? '90px' : (musicViewMode === "alt" ? '610px' : (musicViewMode === "alt_mini" ? '255px' : '580px')),
                   borderRadius: `${windowRoundness}px`,
                   zIndex: focusedWidget === "music" ? 30 : 10,
-                  transitionProperty: 'width, height, min-width, min-height, padding, background-color, border-color, color, fill, stroke, opacity, box-shadow',
+                  transitionProperty: 'background-color, border-color, color, fill, stroke, opacity, box-shadow',
                   transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                   transitionDuration: '300ms'
                 }}

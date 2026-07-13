@@ -231,6 +231,7 @@ export default function NotesWidget({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
   const currentPathRef = useRef<DrawPath | null>(null);
+  const isInternalChangeRef = useRef(false);
 
   const activePage = pages.find((p) => p.id === activePageId) || pages[0];
 
@@ -238,6 +239,11 @@ export default function NotesWidget({
   useEffect(() => {
     localStorage.setItem("flocus_notepad_pages", JSON.stringify(pages));
     
+    if (isInternalChangeRef.current) {
+      isInternalChangeRef.current = false;
+      return;
+    }
+
     // Maintain outer compatibility
     const mainTextPage = pages.find((p) => p.type === "text");
     if (mainTextPage && mainTextPage.content !== noteContent) {
@@ -247,6 +253,10 @@ export default function NotesWidget({
 
   // Keep internal page content synced with parent if prop updates from outside
   useEffect(() => {
+    if (isInternalChangeRef.current) {
+      isInternalChangeRef.current = false;
+      return;
+    }
     if (activePage && activePage.type === "text" && activePage.content !== noteContent) {
       setPages((prev) =>
         prev.map((p) => (p.id === activePage.id ? { ...p, content: noteContent } : p))
@@ -993,6 +1003,7 @@ export default function NotesWidget({
                     value={activePage.content}
                     onChange={(e) => {
                       const updatedVal = e.target.value;
+                      isInternalChangeRef.current = true;
                       setPages((prev) =>
                         prev.map((p) => (p.id === activePageId ? { ...p, content: updatedVal } : p))
                       );
@@ -1560,6 +1571,7 @@ export default function NotesWidget({
                 value={activePage.content}
                 onChange={(val) => {
                   const updatedVal = val || "";
+                  isInternalChangeRef.current = true;
                   setPages((prev) =>
                     prev.map((p) => (p.id === activePageId ? { ...p, content: updatedVal } : p))
                   );
