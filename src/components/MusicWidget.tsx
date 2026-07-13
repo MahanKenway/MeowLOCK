@@ -28,14 +28,7 @@ import {
 } from "lucide-react";
 import DiscoverMusic from "./DiscoverMusic";
 import { getLyricsClientSide, resolveArchiveStream, resolveLastfmStream } from "../services/music";
-import {
-  getSpotifyAuthUrl,
-  refreshSpotifyToken,
-  searchSpotifyTrack,
-  playSpotifyTrack,
-  pauseSpotifyPlayback,
-  SpotifyTrack
-} from "../services/spotify";
+import { SpotifyService, SpotifyTrack } from "../services/SpotifyService";
 
 interface Track {
   id: string;
@@ -710,13 +703,36 @@ export default function MusicWidget({
 
   const spotifyPlayerRef = useRef<any>(null);
 
+  const [spotifyConfigured, setSpotifyConfigured] = useState<boolean | null>(null);
+
+  // Check configuration on mount
+  useEffect(() => {
+    let active = true;
+    SpotifyService.checkConfiguration(window.location.origin).then((isOk) => {
+      if (active) {
+        setSpotifyConfigured(isOk);
+        if (!isOk) {
+          // If SPOTIFY_CLIENT_ID is missing or invalid, clear stale credentials
+          setSpotifyTokens(null);
+          localStorage.removeItem("zen_spotify_tokens");
+        }
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Safely refresh access token if needed
   const getOrRefreshAccessToken = async (): Promise<string | null> => {
     if (!spotifyTokens) return null;
     if (spotifyTokens.expiresAt - 120 * 1000 < Date.now()) {
       try {
         console.log("Spotify access token expired. Refreshing...");
-        const refreshed = await refreshSpotifyToken(spotifyTokens.refreshToken);
+        const refreshed = await SpotifyService.refreshAccessToken(spotifyTokens.refreshToken);
+        if (!refreshed) {
+          throw new Error("Failed to refresh Spotify token");
+        }
         const updated = {
           accessToken: refreshed.accessToken,
           refreshToken: refreshed.refreshToken || spotifyTokens.refreshToken,
@@ -766,59 +782,48 @@ export default function MusicWidget({
       }
 
       const setupPlayer = () => {
-        if (!(window as any).Spotify) return;
-
         if (spotifyPlayerRef.current) {
-          spotifyPlayerRef.current.disconnect();
+          try {
+            spotifyPlayerRef.current.disconnect();
+          } catch (e) {}
         }
 
-        const player = new (window as any).Spotify.Player({
-          name: "Zen Workspace Fake Player",
-          getOAuthToken: async (cb: any) => {
+        const player = SpotifyService.createSilentPlayer(
+          async () => {
             const freshToken = await getOrRefreshAccessToken();
-            cb(freshToken || "");
+            return freshToken;
           },
-          volume: 0 // <--- CRITICAL: Set volume to 0 so it plays fully silently!
-        });
-
-        player.addListener("ready", ({ device_id }: any) => {
-          console.log("Spotify Silent Player Ready with Device ID:", device_id);
-          if (active) {
-            setSpotifyDeviceId(device_id);
+          (deviceId) => {
+            console.log("Spotify Silent Player Ready with Device ID:", deviceId);
+            if (active) {
+              setSpotifyDeviceId(deviceId);
+            }
+          },
+          () => {
+            console.log("Spotify Device offline");
+            if (active) {
+              setSpotifyDeviceId(null);
+            }
+          },
+          async () => {
+            console.warn("Spotify SDK Auth error, refreshing...");
+            await getOrRefreshAccessToken();
+          },
+          (message) => {
+            console.error("Spotify Premium status required for SDK:", message);
+            if (active) {
+              setSpotifyMode("external");
+              localStorage.setItem("zen_spotify_mode", "external");
+            }
+          },
+          (message) => {
+            console.error("Spotify SDK Init error:", message);
           }
-        });
+        );
 
-        player.addListener("not_ready", ({ device_id }: any) => {
-          console.log("Spotify Device offline:", device_id);
-          if (active) {
-            setSpotifyDeviceId(null);
-          }
-        });
-
-        player.addListener("initialization_error", ({ message }: any) => {
-          console.error("Spotify SDK Init error:", message);
-        });
-
-        player.addListener("authentication_error", async ({ message }: any) => {
-          console.error("Spotify SDK Auth error:", message);
-          await getOrRefreshAccessToken();
-        });
-
-        player.addListener("account_error", ({ message }: any) => {
-          console.error("Spotify Premium status required for SDK:", message);
-          if (active) {
-            setSpotifyMode("external");
-            localStorage.setItem("zen_spotify_mode", "external");
-          }
-        });
-
-        player.connect().then((success: boolean) => {
-          if (success) {
-            console.log("Connected silent player instance to Spotify.");
-          }
-        });
-
-        spotifyPlayerRef.current = player;
+        if (player) {
+          spotifyPlayerRef.current = player;
+        }
       };
 
       if ((window as any).Spotify) {
@@ -903,7 +908,7 @@ export default function MusicWidget({
       if (isPlaying && !isResolvingUrl) {
         setSpotifyFakingStatus("searching");
         try {
-          const resolved = await searchSpotifyTrack(currentTrack.name, currentTrack.artist, token);
+          const resolved = await SpotifyService.searchTrack(currentTrack.name, currentTrack.artist, token);
           if (!active) return;
 
           if (resolved) {
@@ -911,7 +916,7 @@ export default function MusicWidget({
             setSpotifyFakingStatus("playing");
 
             const targetDevice = spotifyMode === "silent" ? spotifyDeviceId : null;
-            await playSpotifyTrack(resolved.uri, targetDevice, token);
+            await SpotifyService.playTrack(resolved.uri, targetDevice, token);
           } else {
             setSpotifyFakingStatus("failed");
           }
@@ -929,7 +934,7 @@ export default function MusicWidget({
         setSpotifyFakingStatus("paused");
         try {
           const targetDevice = spotifyMode === "silent" ? spotifyDeviceId : null;
-          await pauseSpotifyPlayback(targetDevice, token);
+          await SpotifyService.pausePlayback(targetDevice, token);
         } catch (e) {
           console.error("Spotify sync pause failed:", e);
         }
@@ -978,21 +983,22 @@ export default function MusicWidget({
         const token = await getOrRefreshAccessToken();
         if (!token || !active) return;
 
-        await fetch("/api/spotify/heartbeat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            trackName: currentTrack?.name || "None",
-            artist: currentTrack?.artist || "None",
-            isPlaying: isPlaying && !isResolvingUrl,
-            mode: spotifyMode,
-            deviceId: spotifyDeviceId,
-            timestamp: Date.now()
-          })
+        const result = await SpotifyService.sendHeartbeat({
+          trackName: currentTrack?.name || "None",
+          artist: currentTrack?.artist || "None",
+          isPlaying: isPlaying && !isResolvingUrl,
+          mode: spotifyMode,
+          deviceId: spotifyDeviceId,
+          token,
+          origin: window.location.origin
         });
+
+        if (result.status === "Disconnected" && active) {
+          console.warn("[MusicWidget] Spotify heartbeat disconnected status returned:", result.message);
+          setSpotifyTokens(null);
+          localStorage.removeItem("zen_spotify_tokens");
+          setSpotifyError("Spotify is Disconnected because SPOTIFY_CLIENT_ID is not configured.");
+        }
       } catch (err) {
         console.error("Failed to send Spotify heartbeat status:", err);
       }
@@ -1013,7 +1019,19 @@ export default function MusicWidget({
     try {
       setSpotifyConnecting(true);
       setSpotifyError(null);
-      const authUrl = await getSpotifyAuthUrl(window.location.origin);
+
+      // Perform a safety check on configuration before opening popup or making auth requests
+      const isOk = await SpotifyService.checkConfiguration(window.location.origin);
+      if (!isOk) {
+        setSpotifyError("Error connecting to Spotify. Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server.");
+        setSpotifyConnecting(false);
+        return;
+      }
+
+      const authUrl = await SpotifyService.getAuthUrl(window.location.origin);
+      if (!authUrl) {
+        throw new Error("Could not fetch auth URL");
+      }
 
       const width = 600;
       const height = 700;
