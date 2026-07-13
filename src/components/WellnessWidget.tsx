@@ -68,6 +68,13 @@ export default function WellnessWidget({
       
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.5);
+
+      // Safely auto-close AudioContext to free browser resources
+      setTimeout(() => {
+        try {
+          audioCtx.close();
+        } catch (err) {}
+      }, 600);
     } catch (e) {
       console.log("Audio play failed", e);
     }

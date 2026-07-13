@@ -116,6 +116,13 @@ export default function TimerWidget({
       playTone(270, 0.05, 3.0, 0.2);
       playTone(360, 0.1, 2.5, 0.15);
       playTone(450, 0.15, 2.0, 0.1);
+
+      // Safely auto-close AudioContext to free browser resources
+      setTimeout(() => {
+        try {
+          ctx.close();
+        } catch (err) {}
+      }, 4000);
     } catch (err) {
       console.error("Failed to synthesize audio notification:", err);
     }

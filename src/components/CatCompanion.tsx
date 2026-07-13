@@ -220,6 +220,13 @@ export default function CatCompanion() {
           osc.stop(ctx.currentTime + delay + 0.25);
         });
       }
+
+      // Safely auto-close AudioContext to free browser resources
+      setTimeout(() => {
+        try {
+          ctx.close();
+        } catch (err) {}
+      }, 1000);
     } catch (e) {
       console.warn("Synth audio meow blocked by browser policy until interaction:", e);
     }

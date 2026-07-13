@@ -88,7 +88,10 @@ export default function WeatherWidget({ onClose, isExpanded, onToggleExpand }: W
   const CurrentIcon = info.icon;
 
   // Hourly (next 24 hours)
-  const currentHourIdx = data.hourly.time.findIndex((t: string) => new Date(t) > new Date());
+  let currentHourIdx = data.hourly.time.findIndex((t: string) => new Date(t) > new Date());
+  if (currentHourIdx === -1) {
+    currentHourIdx = 0;
+  }
   const hourlyData = data.hourly.time.slice(currentHourIdx, currentHourIdx + 24).map((time: string, i: number) => {
     const idx = currentHourIdx + i;
     return {

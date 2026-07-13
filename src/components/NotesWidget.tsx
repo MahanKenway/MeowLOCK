@@ -154,6 +154,13 @@ const playVintageSound = (type: "flip" | "scratch" | "pin" | "burn") => {
       gain.connect(ctx.destination);
       noise.start(now);
     }
+
+    // Safely auto-close AudioContext to free browser resources
+    setTimeout(() => {
+      try {
+        ctx.close();
+      } catch (err) {}
+    }, 500);
   } catch (e) {
     // Audio Context is blocked or not supported
   }
