@@ -1948,7 +1948,8 @@ app.get("/api/auth/spotify/url", (req, res) => {
     response_type: "code",
     redirect_uri: redirectUri,
     scope: scopes,
-    show_dialog: "true"
+    show_dialog: "true",
+    state: origin as string
   });
 
   const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
@@ -1958,6 +1959,7 @@ app.get("/api/auth/spotify/url", (req, res) => {
 app.get("/auth/spotify/callback", async (req, res) => {
   const code = req.query.code as string;
   const error = req.query.error as string;
+  const state = req.query.state as string;
 
   if (error) {
     return res.send(`
@@ -1994,10 +1996,17 @@ app.get("/auth/spotify/callback", async (req, res) => {
       throw new Error("Spotify client ID or client secret is not configured on the server.");
     }
 
-    // Determine absolute callback redirect URL
-    const protocol = req.secure ? "https" : "http";
-    const host = req.headers.host || "localhost:3000";
-    const origin = `${protocol}://${host}`;
+    // Determine absolute callback redirect URL using state or robust headers
+    let origin = "";
+    if (state && state.startsWith("http")) {
+      origin = state;
+    } else {
+      const forwardedHost = req.headers["x-forwarded-host"] as string;
+      const host = forwardedHost || req.headers.host || "localhost:3000";
+      const forwardedProto = req.headers["x-forwarded-proto"] as string;
+      const protocol = forwardedProto || (req.secure ? "https" : "http");
+      origin = `${protocol}://${host}`;
+    }
     const redirectUri = `${origin}/auth/spotify/callback`;
 
     // Exchange authorization code for access & refresh tokens

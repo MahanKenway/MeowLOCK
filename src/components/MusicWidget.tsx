@@ -28,6 +28,7 @@ import {
   Search
 } from "lucide-react";
 import DiscoverMusic from "./DiscoverMusic";
+import SpotifyManualLinkSection from "./SpotifyManualLinkSection";
 import { getLyricsClientSide, resolveArchiveStream, resolveLastfmStream } from "../services/music";
 import { SpotifyService, SpotifyTrack } from "../services/SpotifyService";
 
@@ -698,9 +699,6 @@ export default function MusicWidget({
   const [showManualLyricSearch, setShowManualLyricSearch] = useState(false);
   const [manualLyricTitle, setManualLyricTitle] = useState("");
   const [manualLyricArtist, setManualLyricArtist] = useState("");
-  const [spotifyClientIdClientSide, setSpotifyClientIdClientSide] = useState(() => {
-    return localStorage.getItem("zen_spotify_client_id_client_side") || "";
-  });
 
   // Pre-populate manual search parameters on track transition
   useEffect(() => {
@@ -739,8 +737,10 @@ export default function MusicWidget({
   const [spotifyUserProfile, setSpotifyUserProfile] = useState<any>(null);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
   const [spotifyError, setSpotifyError] = useState<string | null>(null);
+  const [spotifySdkStatus, setSpotifySdkStatus] = useState<"initializing" | "ready" | "auth_error" | "premium_required" | "init_error" | "offline" | "idle">("idle");
 
   const spotifyPlayerRef = useRef<any>(null);
+  const authErrorRetryCount = useRef<number>(0);
 
   const [spotifyConfigured, setSpotifyConfigured] = useState<boolean | null>(null);
 
@@ -763,9 +763,9 @@ export default function MusicWidget({
   }, []);
 
   // Safely refresh access token if needed
-  const getOrRefreshAccessToken = async (): Promise<string | null> => {
+  const getOrRefreshAccessToken = async (force = false): Promise<string | null> => {
     if (!spotifyTokens) return null;
-    if (spotifyTokens.expiresAt - 120 * 1000 < Date.now()) {
+    if (force || spotifyTokens.expiresAt - 120 * 1000 < Date.now()) {
       if (spotifyTokens.refreshToken === "client-side-implicit") {
         console.warn("Client-side implicit token expired. Re-authentication required.");
         setSpotifyTokens(null);
@@ -774,7 +774,7 @@ export default function MusicWidget({
         return null;
       }
       try {
-        console.log("Spotify access token expired. Refreshing...");
+        console.log(force ? "Forcing Spotify token refresh..." : "Spotify access token expired. Refreshing...");
         const refreshed = await SpotifyService.refreshAccessToken(spotifyTokens.refreshToken);
         if (!refreshed) {
           throw new Error("Failed to refresh Spotify token");
@@ -797,6 +797,19 @@ export default function MusicWidget({
     return spotifyTokens.accessToken;
   };
 
+  const handleManualSpotifyTrackSelect = async (track: SpotifyTrack) => {
+    const token = await getOrRefreshAccessToken();
+    if (!token) return;
+    setSpotifyCurrentTrack(track);
+    setSpotifyFakingStatus("playing");
+    try {
+      const targetDevice = spotifyMode === "silent" ? spotifyDeviceId : null;
+      await SpotifyService.playTrack(track.uri, targetDevice, token);
+    } catch (err) {
+      console.error("Manual Spotify playback failed:", err);
+    }
+  };
+
   // 1. Initialize Spotify Web Playback SDK for SILENT virtual playback
   useEffect(() => {
     if (!spotifyTokens || spotifyMode !== "silent") {
@@ -815,6 +828,8 @@ export default function MusicWidget({
     const initSpotifyPlayer = async () => {
       const token = await getOrRefreshAccessToken();
       if (!token || !active) return;
+
+      setSpotifySdkStatus("initializing");
 
       // Inject the Spotify SDK script if it's not present
       if (!(window as any).Spotify) {
@@ -841,29 +856,47 @@ export default function MusicWidget({
           },
           (deviceId) => {
             console.log("Spotify Silent Player Ready with Device ID:", deviceId);
+            authErrorRetryCount.current = 0; // Reset retry count upon successful auth
             if (active) {
               setSpotifyDeviceId(deviceId);
+              setSpotifySdkStatus("ready");
             }
           },
           () => {
             console.log("Spotify Device offline");
             if (active) {
               setSpotifyDeviceId(null);
+              setSpotifySdkStatus("offline");
             }
           },
           async () => {
             console.warn("Spotify SDK Auth error, refreshing...");
-            await getOrRefreshAccessToken();
+            if (active) {
+              setSpotifySdkStatus("auth_error");
+              authErrorRetryCount.current = (authErrorRetryCount.current || 0) + 1;
+              if (authErrorRetryCount.current > 3) {
+                console.error("Too many consecutive Spotify auth errors. Falling back to external mode.");
+                setSpotifyMode("external");
+                localStorage.setItem("zen_spotify_mode", "external");
+                setSpotifyError("Spotify Web Playback SDK failed to authenticate. Gracefully switched to External Controller mode.");
+                return;
+              }
+            }
+            await getOrRefreshAccessToken(true); // FORCE refresh the token on auth error
           },
           (message) => {
             console.error("Spotify Premium status required for SDK:", message);
             if (active) {
+              setSpotifySdkStatus("premium_required");
               setSpotifyMode("external");
               localStorage.setItem("zen_spotify_mode", "external");
             }
           },
           (message) => {
             console.error("Spotify SDK Init error:", message);
+            if (active) {
+              setSpotifySdkStatus("init_error");
+            }
           }
         );
 
@@ -3368,6 +3401,61 @@ export default function MusicWidget({
                   </div>
                 </div>
 
+                {/* SDK Diagnostics Banner */}
+                {spotifyMode === "silent" && (
+                  <div className={`p-3 rounded-2xl border text-[10px] text-left leading-normal space-y-1 ${
+                    spotifySdkStatus === "ready" 
+                      ? "bg-emerald-500/5 border-emerald-500/25 text-emerald-300"
+                      : spotifySdkStatus === "initializing"
+                      ? "bg-amber-500/5 border-amber-500/20 text-amber-300 animate-pulse"
+                      : "bg-red-500/5 border-red-500/20 text-red-300"
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping" />
+                      <span>SILENT WEB PLAYER DIAGNOSTIC STATUS:</span>
+                      <span className="ml-auto text-[8px] bg-white/5 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                        {spotifySdkStatus}
+                      </span>
+                    </div>
+                    {spotifySdkStatus === "initializing" && (
+                      <p className="text-gray-400">
+                        Initializing the Spotify Web Playback SDK... Connecting to a virtual silent soundcard inside your browser. This usually takes 2-3 seconds.
+                      </p>
+                    )}
+                    {spotifySdkStatus === "ready" && (
+                      <p className="text-emerald-400">
+                        Background Virtual Player is online with Device ID: <span className="font-mono text-[9px] select-all font-semibold bg-black/30 px-1 py-0.5 rounded">{spotifyDeviceId}</span>. Listening stats will be tracked seamlessly!
+                      </p>
+                    )}
+                    {spotifySdkStatus === "offline" && (
+                      <p className="text-gray-400">
+                        Virtual speaker went offline or was suspended by the browser. Play a local track to re-awaken.
+                      </p>
+                    )}
+                    {spotifySdkStatus === "auth_error" && (
+                      <p className="text-red-400 font-medium">
+                        Spotify SDK Auth Error! Retrying token refresh ({authErrorRetryCount.current}/3). If this loops, your Spotify Client credentials might be misconfigured, or your authorization has expired. Try disconnecting and reconnecting.
+                      </p>
+                    )}
+                    {spotifySdkStatus === "premium_required" && (
+                      <div className="space-y-1 text-red-400">
+                        <p className="font-bold">⭐ Spotify Premium Required!</p>
+                        <p className="text-gray-400">
+                          The Spotify Web Playback SDK used for silent background streaming is restricted by Spotify to **Premium subscribers only**.
+                        </p>
+                        <p className="text-amber-400 font-semibold">
+                          👉 Please switch to the **External Controller (Free)** mode option above! It uses the standard Web API to sync playback without the Premium SDK.
+                        </p>
+                      </div>
+                    )}
+                    {spotifySdkStatus === "init_error" && (
+                      <p className="text-red-400">
+                        Could not initialize the browser virtual player. This can happen if pop-up blockers, tracking protection, or incognito mode are active. Consider switching to **External Controller** mode.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Faking Playback Status Card */}
                 <div className="bg-gradient-to-br from-emerald-950/15 to-zinc-950/90 p-4 rounded-2xl border border-emerald-500/25 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px]">
                   {spotifyFakingStatus === "playing" && (
@@ -3428,12 +3516,12 @@ export default function MusicWidget({
                   )}
 
                   {spotifyFakingStatus === "failed" && (
-                    <div className="flex flex-col items-center gap-1.5 text-center px-4 py-2">
-                      <span className="text-amber-500 font-bold text-sm">⚠</span>
-                      <p className="text-xs font-bold text-gray-400">Track Not Found on Spotify</p>
-                      <p className="text-[9px] text-gray-500">
-                        Song "{currentTrack.name}" could not be matched on Spotify.
-                      </p>
+                    <div className="w-full flex flex-col gap-2">
+                      <SpotifyManualLinkSection
+                        currentTrack={currentTrack}
+                        token={spotifyTokens?.accessToken}
+                        onTrackSelected={handleManualSpotifyTrackSelect}
+                      />
                     </div>
                   )}
 
@@ -3484,35 +3572,6 @@ export default function MusicWidget({
                   </div>
                 )}
 
-                {/* Optional Client-Side Configuration form for Static / GitHub Pages hosting */}
-                <div className="w-full max-w-[280px] mt-4 bg-white/5 border border-white/5 p-3 rounded-xl space-y-2 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-gray-400">Spotify Client ID (Static Hosting)</span>
-                    <a
-                      href="https://developer.spotify.com/dashboard"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[9px] text-emerald-400 hover:underline"
-                    >
-                      Spotify Dashboard ↗
-                    </a>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Enter your Spotify Client ID..."
-                    value={spotifyClientIdClientSide}
-                    onChange={(e) => {
-                      const val = e.target.value.trim();
-                      setSpotifyClientIdClientSide(val);
-                      localStorage.setItem("zen_spotify_client_id_client_side", val);
-                    }}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-white placeholder-gray-600 outline-none focus:border-emerald-500/30 transition-all font-mono"
-                  />
-                  <p className="text-[8px] text-gray-500 leading-normal">
-                    To use Spotify on GitHub Pages, configure your own Client ID and add <code className="bg-white/5 px-1 rounded font-mono text-gray-300 select-all">{window.location.origin + window.location.pathname}</code> as a <strong>Redirect URI</strong> in Spotify settings.
-                  </p>
-                </div>
-
                 <button
                   onClick={handleConnectSpotify}
                   disabled={spotifyConnecting}
@@ -3527,6 +3586,28 @@ export default function MusicWidget({
                     <span>Link Spotify Account</span>
                   )}
                 </button>
+
+                {/* Developer Redirect URI Helper Card */}
+                <div className="mt-5 w-full max-w-[280px] p-3 rounded-xl bg-black/40 border border-white/5 text-left text-[9px] text-gray-400 space-y-1.5 leading-normal">
+                  <p className="font-bold text-gray-300">🔧 SPOTIFY DEVELOPER INTEGRATION TIPS</p>
+                  <p>
+                    If you added your own credentials in Secrets, ensure this exact **Redirect URI** is allowed in your <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Spotify Developer Console</a>:
+                  </p>
+                  <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-white/5 border border-white/5">
+                    <span className="font-mono text-[8px] select-all font-semibold text-gray-300 flex-1 truncate">
+                      {window.location.origin}/auth/spotify/callback
+                    </span>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/auth/spotify/callback`);
+                        alert("Redirect URI copied to clipboard!");
+                      }}
+                      className="px-1.5 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded text-[7px] font-black cursor-pointer shrink-0"
+                    >
+                      COPY
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

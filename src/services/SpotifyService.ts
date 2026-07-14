@@ -101,13 +101,30 @@ export class SpotifyService {
 
     // Clean track name and artist of common noise to improve search match accuracy
     const cleanName = trackName
+      .replace(/^[0-9]+[\s\-._]+/g, "") // Remove leading track numbers like "10 - ", "01. ", "02 "
       .replace(/\(.*?\)/g, "") // Remove parentheses contents like (Remastered), (Live)
       .replace(/\[.*?\]/g, "") // Remove brackets contents
       .replace(/- Live$/gi, "")
       .replace(/- Remastered$/gi, "")
       .trim();
 
-    const cleanArtist = trackArtist && trackArtist !== "Local" && trackArtist !== "System"
+    const FAKE_ARTISTS = [
+      "lofi study club",
+      "retro beats",
+      "synthwave focus",
+      "classical dreams",
+      "indie, folk & chill alternative",
+      "underground, post-punk & rock",
+      "sensuous shoegaze & dream pop",
+      "unknown artist",
+      "unknown",
+      "local",
+      "system"
+    ];
+
+    const isFakeArtist = trackArtist && FAKE_ARTISTS.some(fake => trackArtist.toLowerCase().includes(fake));
+
+    const cleanArtist = trackArtist && !isFakeArtist
       ? trackArtist.replace(/\(.*?\)/g, "").trim()
       : "";
 
@@ -156,7 +173,7 @@ export class SpotifyService {
 
     // Fallback broad search if specific field search yielded no results
     try {
-      const queryBroad = `${cleanName} ${cleanArtist}`.trim();
+      const queryBroad = cleanArtist ? `${cleanName} ${cleanArtist}`.trim() : cleanName;
       const response = await fetch(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(queryBroad)}&type=track&limit=1`,
         {
@@ -193,6 +210,49 @@ export class SpotifyService {
     }
 
     return null;
+  }
+
+  /**
+   * Searches for tracks by a raw text query on Spotify.
+   */
+  static async searchTracksRaw(
+    query: string,
+    accessToken: string,
+    limit = 5
+  ): Promise<SpotifyTrack[]> {
+    if (!query || !accessToken) return [];
+    try {
+      const response = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      if (response.status === 401) {
+        throw new Error("SPOTIFY_UNAUTHORIZED");
+      }
+
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      const items = data.tracks?.items || [];
+      return items.map((t: any) => ({
+        uri: t.uri,
+        name: t.name,
+        artist: t.artists?.map((a: any) => a.name).join(", ") || "",
+        coverUrl: t.album?.images?.[0]?.url || "",
+        durationMs: t.duration_ms
+      }));
+    } catch (err: any) {
+      if (err.message === "SPOTIFY_UNAUTHORIZED") {
+        throw err;
+      }
+      console.error("[SpotifyService] Raw search failed:", err);
+      return [];
+    }
   }
 
   /**
