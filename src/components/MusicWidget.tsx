@@ -24,7 +24,8 @@ import {
   Compass,
   X,
   Tablet,
-  Smartphone
+  Smartphone,
+  Search
 } from "lucide-react";
 import DiscoverMusic from "./DiscoverMusic";
 import { getLyricsClientSide, resolveArchiveStream, resolveLastfmStream } from "../services/music";
@@ -463,18 +464,20 @@ export default function MusicWidget({
 
   // iPod classic list menu state
   const [isIpodMenuOpen, setIsIpodMenuOpen] = useState(true);
-  const [ipodCurrentMenu, setIpodCurrentMenu] = useState<"main" | "queue" | "themes">("main");
+  const [ipodCurrentMenu, setIpodCurrentMenu] = useState<"main" | "queue" | "themes" | "lyrics">("main");
   const [ipodSelectedIndex, setIpodSelectedIndex] = useState(0);
   const accumulatedRotationRef = useRef(0);
 
   const handleIpodScroll = (steps: number) => {
     let listLength = 0;
     if (ipodCurrentMenu === "main") {
-      listLength = 6;
+      listLength = 7;
     } else if (ipodCurrentMenu === "queue") {
       listLength = tracks.length;
     } else if (ipodCurrentMenu === "themes") {
       listLength = 2;
+    } else if (ipodCurrentMenu === "lyrics") {
+      listLength = lyricsData?.lyrics?.length || 0;
     }
     
     if (listLength === 0) return;
@@ -497,7 +500,7 @@ export default function MusicWidget({
         setIsIpodMenuOpen(false);
       } else {
         setIpodCurrentMenu("main");
-        setIpodSelectedIndex(0);
+        setIpodSelectedIndex(1); // Pre-select Lyrics in the main menu
       }
     }
   };
@@ -522,21 +525,25 @@ export default function MusicWidget({
         case 0: // Now Playing
           setIsIpodMenuOpen(false);
           break;
-        case 1: // Music Queue
+        case 1: // Lyrics View
+          setIpodCurrentMenu("lyrics");
+          setIpodSelectedIndex(activeLyricIdx >= 0 ? activeLyricIdx : 0);
+          break;
+        case 2: // Music Queue
           setIpodCurrentMenu("queue");
           setIpodSelectedIndex(0);
           break;
-        case 2: // Shuffle
+        case 3: // Shuffle
           handleToggleShuffle();
           break;
-        case 3: // Repeat
+        case 4: // Repeat
           handleToggleLoop();
           break;
-        case 4: // Theme
+        case 5: // Theme
           setIpodCurrentMenu("themes");
           setIpodSelectedIndex(0);
           break;
-        case 5: // Exit
+        case 6: // Exit
           setViewMode("normal");
           break;
         default:
@@ -555,7 +562,15 @@ export default function MusicWidget({
         setIpodStyle("black");
       }
       setIpodCurrentMenu("main");
-      setIpodSelectedIndex(4);
+      setIpodSelectedIndex(5);
+    } else if (ipodCurrentMenu === "lyrics") {
+      if (lyricsData?.lyrics?.[indexToUse]) {
+        const lyric = lyricsData.lyrics[indexToUse];
+        if (audioRef.current) {
+          audioRef.current.currentTime = lyric.time;
+          setCurrentTime(lyric.time);
+        }
+      }
     }
   };
 
@@ -680,6 +695,30 @@ export default function MusicWidget({
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const lastFetchedTrackRef = useRef<string | null>(null);
 
+  const [showManualLyricSearch, setShowManualLyricSearch] = useState(false);
+  const [manualLyricTitle, setManualLyricTitle] = useState("");
+  const [manualLyricArtist, setManualLyricArtist] = useState("");
+  const [spotifyClientIdClientSide, setSpotifyClientIdClientSide] = useState(() => {
+    return localStorage.getItem("zen_spotify_client_id_client_side") || "";
+  });
+
+  // Pre-populate manual search parameters on track transition
+  useEffect(() => {
+    if (currentTrack && currentTrack.id !== "none") {
+      setManualLyricTitle(currentTrack.name);
+      setManualLyricArtist(currentTrack.artist);
+    }
+  }, [currentTrack?.id]);
+
+  // Determine if source is external / cross-origin (bypasses AudioContext to prevent browser silencing)
+  const isExternalSource = (() => {
+    const url = resolvedUrl || "";
+    if (!url) return false;
+    const isLocalBlob = url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("file:");
+    const isSameOrigin = url.startsWith("/") || url.startsWith("./") || url.startsWith(window.location.origin);
+    return !isLocalBlob && !isSameOrigin;
+  })();
+
   // --- Spotify Integration & Faking Booster State ---
   const [spotifyTokens, setSpotifyTokens] = useState<{ accessToken: string; refreshToken: string; expiresAt: number } | null>(() => {
     try {
@@ -727,6 +766,13 @@ export default function MusicWidget({
   const getOrRefreshAccessToken = async (): Promise<string | null> => {
     if (!spotifyTokens) return null;
     if (spotifyTokens.expiresAt - 120 * 1000 < Date.now()) {
+      if (spotifyTokens.refreshToken === "client-side-implicit") {
+        console.warn("Client-side implicit token expired. Re-authentication required.");
+        setSpotifyTokens(null);
+        localStorage.removeItem("zen_spotify_tokens");
+        setSpotifyError("Your Spotify session has expired. Please click Link Spotify Account to re-authenticate.");
+        return null;
+      }
       try {
         console.log("Spotify access token expired. Refreshing...");
         const refreshed = await SpotifyService.refreshAccessToken(spotifyTokens.refreshToken);
@@ -1175,15 +1221,15 @@ export default function MusicWidget({
           }
           const average = sum / bufferLength; // Range: 0 to 255
 
-          // Drive a smooth, responsive breathing scale transition (up to +6% size boost at peak volume)
-          const targetScale = 1 + (average / 255) * 0.06;
-          setVisualizerScale((prev) => prev + (targetScale - prev) * 0.18); // Soft Lerp
+          // Drive a smooth, responsive breathing scale transition (up to +2% size boost at peak volume for ultra-subtle chill effect)
+          const targetScale = 1 + (average / 255) * 0.02;
+          setVisualizerScale((prev) => prev + (targetScale - prev) * 0.08); // Even softer, slower Lerp
         } else {
-          // Simulated smooth pulsing visualizer scale when playing external audio streams that bypass Web Audio
-          const time = Date.now() * 0.005;
-          const beat = Math.pow(Math.sin(time), 4) * 0.04 + Math.sin(time * 0.2) * 0.01;
+          // Simulated very slow, relaxing breathing visualizer scale (max 1.5% size boost, extremely calm)
+          const time = Date.now() * 0.002; // Halved speed for elegant, calm breathing
+          const beat = Math.pow(Math.sin(time), 4) * 0.012 + Math.sin(time * 0.2) * 0.003;
           const targetScale = 1 + Math.max(0, beat);
-          setVisualizerScale((prev) => prev + (targetScale - prev) * 0.12);
+          setVisualizerScale((prev) => prev + (targetScale - prev) * 0.06); // Extremely smooth transition
         }
         animationFrameIdRef.current = requestAnimationFrame(updateScale);
       };
@@ -1315,6 +1361,28 @@ export default function MusicWidget({
     };
   }, [currentTrack.id, duration]);
 
+  const handleManualLyricSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualLyricTitle.trim()) return;
+    setLyricsLoading(true);
+    setLyricsError(null);
+    setLyricsData(null);
+    try {
+      const data = await getLyricsClientSide(
+        manualLyricTitle,
+        manualLyricArtist,
+        duration > 0 ? Math.round(duration) : 180
+      );
+      setLyricsData(data);
+      setShowManualLyricSearch(false);
+    } catch (err: any) {
+      console.error("Manual lyrics search failed:", err);
+      setLyricsError(err.message || "Failed to find lyrics for this query.");
+    } finally {
+      setLyricsLoading(false);
+    }
+  };
+
   // Determine the active lyric line
   const activeLyricIdx = (() => {
     if (!lyricsData || !lyricsData.lyrics || lyricsData.lyrics.length === 0) return -1;
@@ -1338,6 +1406,32 @@ export default function MusicWidget({
       });
     }
   }, [activeLyricIdx]);
+
+  // Auto-scroll iPod lyrics container to show current line
+  useEffect(() => {
+    if (ipodCurrentMenu === "lyrics" && activeLyricIdx >= 0) {
+      const container1 = document.getElementById("ipod-lyrics-container-1");
+      if (container1) {
+        const activeEl = container1.children[activeLyricIdx] as HTMLElement;
+        if (activeEl) {
+          container1.scrollTo({
+            top: activeEl.offsetTop - container1.clientHeight / 2 + activeEl.clientHeight / 2,
+            behavior: "smooth"
+          });
+        }
+      }
+      const container2 = document.getElementById("ipod-lyrics-container-2");
+      if (container2) {
+        const activeEl = container2.children[activeLyricIdx] as HTMLElement;
+        if (activeEl) {
+          container2.scrollTo({
+            top: activeEl.offsetTop - container2.clientHeight / 2 + activeEl.clientHeight / 2,
+            behavior: "smooth"
+          });
+        }
+      }
+    }
+  }, [activeLyricIdx, ipodCurrentMenu]);
 
   // Sync volume with audio element
   useEffect(() => {
@@ -1703,6 +1797,7 @@ export default function MusicWidget({
                     <div className="w-[58%] border-r border-slate-300 dark:border-zinc-800 pr-1 flex flex-col justify-start text-[9px] font-bold text-slate-700 dark:text-zinc-300 font-sans space-y-0.5">
                       {[
                         "Now Playing",
+                        "Lyrics 🎤",
                         "Music Queue",
                         `Shuffle: ${isShuffle ? "On" : "Off"}`,
                         `Repeat: ${isLoop ? "On" : "Off"}`,
@@ -1794,6 +1889,46 @@ export default function MusicWidget({
                         );
                       })}
                     </div>
+                  </div>
+                ) : ipodCurrentMenu === "lyrics" ? (
+                  <div className="flex-1 flex flex-col min-h-0 text-left py-0.5 select-none">
+                    <div className="flex items-center justify-between border-b border-slate-300 dark:border-zinc-800 pb-0.5 mb-1 shrink-0">
+                      <span className="text-[8px] font-black text-slate-500 tracking-wide">LYRICS</span>
+                      <span className="text-[7px] text-slate-400 font-bold">Auto-Sync</span>
+                    </div>
+                    {!lyricsData || lyricsData.lyrics.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-3">
+                        <span className="text-[8px] text-slate-400">No lyrics active.</span>
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-y-auto pr-0.5 space-y-1 scrollbar-none max-h-[110px]" id="ipod-lyrics-container-1">
+                        {lyricsData.lyrics.map((lyric, idx) => {
+                          const isActive = idx === activeLyricIdx;
+                          const isFocused = idx === ipodSelectedIndex;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setIpodSelectedIndex(idx);
+                                if (audioRef.current) {
+                                  audioRef.current.currentTime = lyric.time;
+                                  setCurrentTime(lyric.time);
+                                }
+                              }}
+                              className={`px-1 py-0.5 rounded text-[7.5px] leading-tight font-sans text-left cursor-pointer transition-all ${
+                                isFocused
+                                  ? "bg-gradient-to-r from-sky-500 to-sky-600 text-white font-black"
+                                  : isActive
+                                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold"
+                                  : "text-slate-700 dark:text-zinc-400 font-medium"
+                              }`}
+                            >
+                              {lyric.text}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ) : ipodCurrentMenu === "themes" ? (
                   <div className="flex-1 flex flex-col min-h-0 text-left py-0.5">
@@ -2245,6 +2380,7 @@ export default function MusicWidget({
                     <div className="w-[58%] border-r border-slate-300 pr-1 flex flex-col justify-start text-[11px] font-bold text-slate-700 font-sans space-y-0.5">
                       {[
                         "Now Playing",
+                        "Lyrics 🎤",
                         "Music Queue",
                         `Shuffle: ${isShuffle ? "On" : "Off"}`,
                         `Repeat: ${isLoop ? "On" : "Off"}`,
@@ -2336,6 +2472,46 @@ export default function MusicWidget({
                         );
                       })}
                     </div>
+                  </div>
+                ) : ipodCurrentMenu === "lyrics" ? (
+                  <div className="flex-1 flex flex-col min-h-0 text-left py-1 select-none">
+                    <div className="flex items-center justify-between border-b border-slate-300 dark:border-zinc-800 pb-0.5 mb-1 shrink-0">
+                      <span className="text-[9px] font-black text-slate-500 tracking-wide">LYRICS</span>
+                      <span className="text-[8px] text-slate-400 font-bold">Auto-Sync</span>
+                    </div>
+                    {!lyricsData || lyricsData.lyrics.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                        <span className="text-[9px] text-slate-400">No lyrics active.</span>
+                      </div>
+                    ) : (
+                      <div className="flex-1 overflow-y-auto pr-0.5 space-y-1 scrollbar-none max-h-[145px]" id="ipod-lyrics-container-2">
+                        {lyricsData.lyrics.map((lyric, idx) => {
+                          const isActive = idx === activeLyricIdx;
+                          const isFocused = idx === ipodSelectedIndex;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setIpodSelectedIndex(idx);
+                                if (audioRef.current) {
+                                  audioRef.current.currentTime = lyric.time;
+                                  setCurrentTime(lyric.time);
+                                }
+                              }}
+                              className={`px-1.5 py-1 rounded text-[8.5px] leading-tight font-sans text-left cursor-pointer transition-all ${
+                                isFocused
+                                  ? "bg-gradient-to-r from-sky-500 to-sky-600 text-white font-black"
+                                  : isActive
+                                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold"
+                                  : "text-slate-700 dark:text-zinc-400 font-medium"
+                              }`}
+                            >
+                              {lyric.text}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ) : ipodCurrentMenu === "themes" ? (
                   <div className="flex-1 flex flex-col min-h-0 text-left py-1.5">
@@ -2959,8 +3135,68 @@ export default function MusicWidget({
           </>
         ) : activeTab === "lyrics" ? (
           /* Lyrics Tab content */
-          <div className="flex-1 flex flex-col justify-between min-h-0 relative select-text w-full">
-            {lyricsLoading ? (
+          <div className="flex-1 flex flex-col justify-start min-h-0 relative select-text w-full">
+            {/* Header / Toggle Search Lyrics */}
+            {currentTrack && currentTrack.id !== "none" && (
+              <div className="flex items-center justify-between gap-1.5 mb-2.5 shrink-0 select-none">
+                <span className="text-[10px] font-sans font-black tracking-wider uppercase text-gray-400">
+                  {showManualLyricSearch ? "Search Database" : "Syncing Lyrics"}
+                </span>
+                <button
+                  onClick={() => setShowManualLyricSearch(!showManualLyricSearch)}
+                  className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-[9px] font-bold text-gray-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Search className="w-2.5 h-2.5" />
+                  <span>{showManualLyricSearch ? "Show Lyrics" : "Search manual"}</span>
+                </button>
+              </div>
+            )}
+
+            {showManualLyricSearch ? (
+              /* Beautiful manual lyrics search form */
+              <form onSubmit={handleManualLyricSearch} className="flex-1 flex flex-col justify-start gap-3 select-none py-1">
+                <div className="space-y-1 text-left">
+                  <label className="text-[9px] uppercase tracking-wider font-mono text-gray-500 font-black">Track Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualLyricTitle}
+                    onChange={(e) => setManualLyricTitle(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-emerald-500/30 transition-all font-sans"
+                    placeholder="Enter song title..."
+                  />
+                </div>
+                <div className="space-y-1 text-left">
+                  <label className="text-[9px] uppercase tracking-wider font-mono text-gray-500 font-black">Artist Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualLyricArtist}
+                    onChange={(e) => setManualLyricArtist(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-emerald-500/30 transition-all font-sans"
+                    placeholder="Enter artist name..."
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={lyricsLoading}
+                  className="w-full py-2 bg-emerald-500 text-white font-sans font-extrabold text-xs rounded-xl hover:bg-emerald-400 transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                  style={{ backgroundColor: dominantColor }}
+                >
+                  {lyricsLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Searching LRCLIB...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-3.5 h-3.5" />
+                      <span>Search & Apply Lyrics</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : lyricsLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-2.5 py-6">
                 <Loader2 className="w-7 h-7 animate-spin" style={{ color: dominantColor }} />
                 <div className="space-y-1">
@@ -2969,42 +3205,56 @@ export default function MusicWidget({
                 </div>
               </div>
             ) : lyricsError && !lyricsData ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-6">
-                <p className="text-xs text-gray-400 font-sans font-semibold">{lyricsError}</p>
-                <button
-                  onClick={async () => {
-                    // Trigger manual reload
-                    setLyricsError(null);
-                    setLyricsLoading(true);
-                    setLyricsData(null); // Clear previous state
-                    try {
-                      const data = await getLyricsClientSide(
-                        currentTrack.name,
-                        currentTrack.artist,
-                        duration || 180
-                      );
-                      setLyricsData(data);
-                    } catch (err: any) {
-                      console.error(err);
-                      setLyricsError(err.message || "Failed to fetch lyrics again.");
-                    } finally {
-                      setLyricsLoading(false);
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-sans font-bold text-white transition-all cursor-pointer shadow-md"
-                  style={{ backgroundColor: dominantColor }}
-                >
-                  Retry Lyrics Sync
-                </button>
+              <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-6 select-none">
+                <p className="text-xs text-gray-400 font-sans font-semibold px-4">{lyricsError}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setLyricsError(null);
+                      setLyricsLoading(true);
+                      setLyricsData(null);
+                      try {
+                        const data = await getLyricsClientSide(
+                          currentTrack.name,
+                          currentTrack.artist,
+                          duration || 180
+                        );
+                        setLyricsData(data);
+                      } catch (err: any) {
+                        console.error(err);
+                        setLyricsError(err.message || "Failed to fetch lyrics again.");
+                      } finally {
+                        setLyricsLoading(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-sans font-bold text-white transition-all cursor-pointer shadow-md"
+                    style={{ backgroundColor: dominantColor }}
+                  >
+                    Retry Auto Sync
+                  </button>
+                  <button
+                    onClick={() => setShowManualLyricSearch(true)}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-sans font-bold text-gray-300 bg-white/5 border border-white/5 hover:bg-white/10 transition-all cursor-pointer shadow-md"
+                  >
+                    Search Manually
+                  </button>
+                </div>
               </div>
             ) : !lyricsData || lyricsData.lyrics.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-6">
+              <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-6 select-none">
                 <Mic className="w-6 h-6 text-gray-600 animate-pulse" />
-                <p className="text-xs text-gray-400 font-sans">No lyrics active for fallback state.</p>
-                <p className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">Upload or play a track to begin.</p>
+                <p className="text-xs text-gray-400 font-sans font-medium">No lyrics active for this track.</p>
+                <button
+                  onClick={() => setShowManualLyricSearch(true)}
+                  className="mt-1 px-3 py-1.5 rounded-lg text-[10px] font-sans font-bold text-white transition-all cursor-pointer"
+                  style={{ backgroundColor: dominantColor }}
+                >
+                  Search Database 🔍
+                </button>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto max-h-[190px] pr-1.5 space-y-3.5 scroll-smooth custom-scrollbar relative py-2">
+              /* Highly polished custom-styled scrolling active lyrics */
+              <div className="flex-1 overflow-y-auto max-h-[190px] pr-1.5 space-y-3.5 scroll-smooth custom-scrollbar relative py-2 select-text text-left">
                 {lyricsData.lyrics.map((lyric, idx) => {
                   const isActive = idx === activeLyricIdx;
                   return (
@@ -3017,20 +3267,20 @@ export default function MusicWidget({
                           setCurrentTime(lyric.time);
                         }
                       }}
-                      className={`text-left transition-all duration-300 cursor-pointer py-1 px-2 rounded-xl border select-none group/lyric ${
+                      className={`text-left transition-all duration-300 cursor-pointer py-1 px-2.5 rounded-xl border select-text group/lyric ${
                         isActive
-                          ? "scale-105 font-extrabold text-white text-sm"
-                          : "text-gray-400/80 hover:text-gray-200 text-xs hover:bg-white/5 border-transparent"
+                          ? "scale-[1.02] font-black text-white text-sm"
+                          : "text-gray-400/70 hover:text-gray-200 text-xs hover:bg-white/5 border-transparent"
                       }`}
                       style={{
                         backgroundColor: isActive ? `${dominantColor}15` : undefined,
                         borderColor: isActive ? `${dominantColor}30` : "transparent",
-                        textShadow: isActive ? `0 0 10px ${dominantColor}50` : "none"
+                        textShadow: isActive ? `0 0 12px ${dominantColor}60` : "none"
                       }}
                     >
-                      <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-start justify-between gap-3">
                         <span className="leading-relaxed font-sans">{lyric.text}</span>
-                        <span className="font-mono text-[8px] opacity-0 group-hover/lyric:opacity-80 transition-opacity shrink-0 py-0.5 px-1 bg-white/5 rounded border border-white/5">
+                        <span className="font-mono text-[8px] opacity-0 group-hover/lyric:opacity-80 transition-opacity shrink-0 py-0.5 px-1 bg-white/5 rounded border border-white/5 select-none">
                           {formatTime(lyric.time)}
                         </span>
                       </div>
@@ -3234,10 +3484,39 @@ export default function MusicWidget({
                   </div>
                 )}
 
+                {/* Optional Client-Side Configuration form for Static / GitHub Pages hosting */}
+                <div className="w-full max-w-[280px] mt-4 bg-white/5 border border-white/5 p-3 rounded-xl space-y-2 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-400">Spotify Client ID (Static Hosting)</span>
+                    <a
+                      href="https://developer.spotify.com/dashboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[9px] text-emerald-400 hover:underline"
+                    >
+                      Spotify Dashboard ↗
+                    </a>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Enter your Spotify Client ID..."
+                    value={spotifyClientIdClientSide}
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      setSpotifyClientIdClientSide(val);
+                      localStorage.setItem("zen_spotify_client_id_client_side", val);
+                    }}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-white placeholder-gray-600 outline-none focus:border-emerald-500/30 transition-all font-mono"
+                  />
+                  <p className="text-[8px] text-gray-500 leading-normal">
+                    To use Spotify on GitHub Pages, configure your own Client ID and add <code className="bg-white/5 px-1 rounded font-mono text-gray-300 select-all">{window.location.origin + window.location.pathname}</code> as a <strong>Redirect URI</strong> in Spotify settings.
+                  </p>
+                </div>
+
                 <button
                   onClick={handleConnectSpotify}
                   disabled={spotifyConnecting}
-                  className="mt-5 w-full max-w-[220px] py-2.5 rounded-xl bg-[#1ED760] hover:bg-[#1db954] text-black font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  className="mt-4 w-full max-w-[220px] py-2.5 rounded-xl bg-[#1ED760] hover:bg-[#1db954] text-black font-black text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98] cursor-pointer disabled:opacity-50"
                 >
                   {spotifyConnecting ? (
                     <>
