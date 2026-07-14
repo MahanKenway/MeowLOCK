@@ -11,7 +11,8 @@ import {
   Globe,
   Database,
   Volume2,
-  Check
+  Check,
+  Youtube
 } from "lucide-react";
 import { searchMusicClient } from "../services/music";
 
@@ -31,6 +32,7 @@ interface DiscoverMusicProps {
   onPlayTrack: (track: Track) => void;
   onAddTrackToQueue: (track: Track) => void;
   dominantColor: string;
+  spotifyToken?: string;
 }
 
 export default function DiscoverMusic({
@@ -38,12 +40,14 @@ export default function DiscoverMusic({
   tracks,
   onPlayTrack,
   onAddTrackToQueue,
-  dominantColor
+  dominantColor,
+  spotifyToken
 }: DiscoverMusicProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [searchEngine, setSearchEngine] = useState<"global" | "spotify" | "youtube" | "archive">("global");
   const [likedTracks, setLikedTracks] = useState<Track[]>(() => {
     try {
       const saved = localStorage.getItem("focus_music_liked");
@@ -53,30 +57,30 @@ export default function DiscoverMusic({
     }
   });
 
-  // Curated quick-search tags for Archive.org
+  // Curated quick-search tags
   const quickSearches: string[] = [
-    "My Chemical Romance", 
-    "Live Concert", 
+    "Lofi beats", 
+    "Nature study ambient", 
+    "Deep Focus", 
     "Classical piano", 
-    "Vintage Jazz", 
-    "Audiobook", 
-    "Nature sounds",
-    "Lofi",
-    "Ambient",
-    "Synthwave"
+    "Synthwave focus", 
+    "Vintage Jazz",
+    "Radiohead",
+    "Chopin"
   ];
 
   // Perform search
-  const performSearch = async (queryToSearch: string) => {
+  const performSearch = async (queryToSearch: string, engineOverride?: "global" | "spotify" | "youtube" | "archive") => {
     if (!queryToSearch.trim()) return;
     setIsLoading(true);
     setError(null);
+    const engine = engineOverride || searchEngine;
     try {
-      const results = await searchMusicClient(queryToSearch, "archive");
+      const results = await searchMusicClient(queryToSearch, engine, spotifyToken);
       setSearchResults(results);
     } catch (err: any) {
       console.error("Search failed:", err);
-      setError("Failed to retrieve results from Internet Archive. Please try again.");
+      setError("Failed to retrieve results. Please try another search engine or try again.");
     } finally {
       setIsLoading(false);
     }
@@ -94,12 +98,7 @@ export default function DiscoverMusic({
 
   // Perform a default search on load
   useEffect(() => {
-    if (searchQuery.trim()) {
-      performSearch(searchQuery);
-    } else {
-      setSearchQuery("My Chemical Romance");
-      performSearch("My Chemical Romance");
-    }
+    performSearch("Lofi beats");
   }, []);
 
   const toggleLikeTrack = (track: Track) => {
@@ -121,7 +120,7 @@ export default function DiscoverMusic({
         <div className="flex-1 relative">
           <input
             type="text"
-            placeholder="Search live concerts, vintage tapes, nature audio..."
+            placeholder="Search Global Music, Spotify, YouTube..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-white/20 transition-all font-sans"
@@ -135,6 +134,38 @@ export default function DiscoverMusic({
           Go
         </button>
       </form>
+
+      {/* Search Engine Switcher */}
+      <div className="flex gap-1 mb-2.5 bg-black/40 p-1 rounded-xl border border-white/5">
+        {(["global", "spotify", "youtube", "archive"] as const).map((eng) => {
+          const isActive = searchEngine === eng;
+          const isSpotifyAndNoToken = eng === "spotify" && !spotifyToken;
+          
+          return (
+            <button
+              key={eng}
+              type="button"
+              disabled={isSpotifyAndNoToken}
+              onClick={() => {
+                setSearchEngine(eng);
+                if (searchQuery.trim()) {
+                  performSearch(searchQuery, eng);
+                }
+              }}
+              title={isSpotifyAndNoToken ? "Please link your Spotify account first" : undefined}
+              className={`flex-1 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                isSpotifyAndNoToken ? "opacity-30 cursor-not-allowed" : ""
+              }`}
+              style={{
+                backgroundColor: isActive ? dominantColor : "transparent",
+                color: isActive ? "#ffffff" : "#9ca3af"
+              }}
+            >
+              {eng === "global" ? "🌐 Global" : eng === "spotify" ? "Spotify" : eng === "youtube" ? "YouTube" : "Archive"}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Quick Search Tag Suggestions */}
       <div className="mb-3">
@@ -157,7 +188,7 @@ export default function DiscoverMusic({
           <div className="flex-1 flex flex-col items-center justify-center text-center py-10 gap-2">
             <Loader2 className="w-6 h-6 animate-spin" style={{ color: dominantColor }} />
             <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-              Connecting to Internet Archive Vault...
+              Searching vaults...
             </p>
           </div>
         ) : error ? (
@@ -167,7 +198,7 @@ export default function DiscoverMusic({
               onClick={() => performSearch(searchQuery)}
               className="text-[9px] font-mono text-sky-400 hover:underline"
             >
-              Retry Connection
+              Retry Search
             </button>
           </div>
         ) : searchResults.length === 0 ? (
@@ -182,6 +213,20 @@ export default function DiscoverMusic({
               const isSelected = currentTrack?.id === track.id || (currentTrack?.name === track.name && currentTrack?.artist === track.artist);
               const isLiked = likedTracks.some(t => t.id === track.id || (t.name === track.name && t.artist === track.artist));
               
+              // Platform styling
+              const isSpotify = track.id.startsWith("spotify");
+              const isYoutube = track.id.startsWith("youtube") || track.url.includes("youtube") || track.url.includes("youtu.be");
+              
+              let platformBadge = "Archive";
+              let badgeColor = "text-sky-400 border-sky-400/20 bg-sky-400/5";
+              if (isSpotify) {
+                platformBadge = "Spotify";
+                badgeColor = "text-emerald-400 border-emerald-400/20 bg-emerald-400/5";
+              } else if (isYoutube) {
+                platformBadge = "YouTube";
+                badgeColor = "text-red-400 border-red-400/20 bg-red-400/5";
+              }
+
               return (
                 <div
                   key={track.id}
@@ -197,7 +242,6 @@ export default function DiscoverMusic({
                     className="w-9 h-9 rounded-lg object-cover border border-white/5 shrink-0"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
-                      // fallback for broken images
                       (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=400&h=400&fit=crop";
                     }}
                   />
@@ -207,8 +251,11 @@ export default function DiscoverMusic({
                     
                     {/* Secondary metadata badge */}
                     <div className="flex items-center gap-1.5 mt-1">
+                      <span className={`font-mono text-[8px] uppercase tracking-wider px-1 py-0.5 rounded border ${badgeColor}`}>
+                        {platformBadge}
+                      </span>
                       <span className="font-mono text-[8px] text-gray-500 leading-none">
-                        {track.format}
+                        {track.duration}
                       </span>
                     </div>
                   </div>
@@ -251,9 +298,9 @@ export default function DiscoverMusic({
 
       {/* Static help footer */}
       <div className="mt-2.5 pt-2 border-t border-white/5 text-[9px] text-gray-500 font-sans flex items-center justify-between">
-        <span>Powered by Archive.org public-domain audio</span>
+        <span>Integrated Search Network</span>
         <span className="font-mono text-[8px] text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">
-          MP3 Extracting
+          Multi-Source
         </span>
       </div>
     </div>

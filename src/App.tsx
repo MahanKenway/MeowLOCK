@@ -489,6 +489,29 @@ export default function App() {
   const leftDockRef = useRef<HTMLDivElement>(null);
   const rightDockRef = useRef<HTMLDivElement>(null);
 
+  // Handle Spotify PKCE popup redirect if we are running inside the popup
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const error = params.get("error");
+
+    if ((code || error) && window.opener) {
+      if (code) {
+        window.opener.postMessage({
+          type: "SPOTIFY_AUTH_CODE",
+          payload: { code, state }
+        }, "*");
+      } else if (error) {
+        window.opener.postMessage({
+          type: "SPOTIFY_AUTH_ERROR",
+          error: error
+        }, "*");
+      }
+      window.close();
+    }
+  }, []);
+
   // --- CORE STATE PERSISTENCE ---
   const [profiles, setProfiles] = useState<WorkspaceProfile[]>(() => {
     const saved = localStorage.getItem("focus_profiles");

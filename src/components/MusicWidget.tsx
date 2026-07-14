@@ -736,6 +736,7 @@ export default function MusicWidget({
   const [spotifyFakingStatus, setSpotifyFakingStatus] = useState<"idle" | "searching" | "playing" | "paused" | "failed" | "unauthorized">("idle");
   const [spotifyUserProfile, setSpotifyUserProfile] = useState<any>(null);
   const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [spotifyTokenRefreshing, setSpotifyTokenRefreshing] = useState(false);
   const [spotifyError, setSpotifyError] = useState<string | null>(null);
   const [spotifySdkStatus, setSpotifySdkStatus] = useState<"initializing" | "ready" | "auth_error" | "premium_required" | "init_error" | "offline" | "idle">("idle");
 
@@ -743,6 +744,80 @@ export default function MusicWidget({
   const authErrorRetryCount = useRef<number>(0);
 
   const [spotifyConfigured, setSpotifyConfigured] = useState<boolean | null>(null);
+
+  // --- YouTube Playback Support ---
+  const ytIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const isYoutubePlayback = !!(currentTrack && (
+    currentTrack.url?.startsWith("youtube://") || 
+    currentTrack.url?.includes("youtube.com") || 
+    currentTrack.url?.includes("youtu.be") || 
+    currentTrack.id?.startsWith("youtube-")
+  ));
+
+  const getYoutubeVideoId = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("youtube://")) {
+      return url.replace("youtube://", "");
+    }
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : "";
+  };
+  const ytVideoId = getYoutubeVideoId(currentTrack?.url || "");
+
+  const sendYtCommand = (func: string, args: any = "") => {
+    if (ytIframeRef.current && ytIframeRef.current.contentWindow) {
+      try {
+        ytIframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func, args }),
+          "*"
+        );
+      } catch (e) {
+        console.error("Failed to send postMessage to YouTube iframe:", e);
+      }
+    }
+  };
+
+  // Sync YouTube play/pause state
+  useEffect(() => {
+    if (isYoutubePlayback) {
+      // Pause native HTMLAudio
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+      if (isPlaying) {
+        sendYtCommand("playVideo");
+      } else {
+        sendYtCommand("pauseVideo");
+      }
+    }
+  }, [isPlaying, isYoutubePlayback, currentTrack?.id]);
+
+  // Sync YouTube Volume and Mute
+  useEffect(() => {
+    if (isYoutubePlayback) {
+      sendYtCommand("setVolume", isMuted ? 0 : volume * 100);
+    }
+  }, [volume, isMuted, isYoutubePlayback, currentTrack?.id]);
+
+  // Estimate YouTube progress since we can't reliably get postMessage events in sandboxed iframes
+  useEffect(() => {
+    if (!isYoutubePlayback || !isPlaying) return;
+
+    const interval = setInterval(() => {
+      setCurrentTime((prev) => {
+        const trkDuration = duration || 210; // Default to 3:30 if unknown
+        if (prev >= trkDuration) {
+          clearInterval(interval);
+          handleAudioEnded();
+          return trkDuration;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isYoutubePlayback, isPlaying, duration]);
 
   // Check configuration on mount
   useEffect(() => {
@@ -775,7 +850,12 @@ export default function MusicWidget({
       }
       try {
         console.log(force ? "Forcing Spotify token refresh..." : "Spotify access token expired. Refreshing...");
-        const refreshed = await SpotifyService.refreshAccessToken(spotifyTokens.refreshToken);
+        setSpotifyTokenRefreshing(true);
+        const clientId = await SpotifyService.getClientId();
+        if (!clientId) {
+          throw new Error("Spotify Client ID is not configured on the server.");
+        }
+        const refreshed = await SpotifyService.refreshAccessToken(spotifyTokens.refreshToken, clientId);
         if (!refreshed) {
           throw new Error("Failed to refresh Spotify token");
         }
@@ -786,9 +866,12 @@ export default function MusicWidget({
         };
         setSpotifyTokens(updated);
         localStorage.setItem("zen_spotify_tokens", JSON.stringify(updated));
+        setSpotifyTokenRefreshing(false);
         return refreshed.accessToken;
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to auto-refresh Spotify token:", err);
+        setSpotifyTokenRefreshing(false);
+        setSpotifyError(`Failed to refresh Spotify connection: ${err.message || "Unknown error"}. Please try linking your account again.`);
         setSpotifyTokens(null);
         localStorage.removeItem("zen_spotify_tokens");
         return null;
@@ -1032,19 +1115,52 @@ export default function MusicWidget({
 
   // 4. Handle success/error postMessages from the Spotify Auth Popup
   useEffect(() => {
-    const handleSpotifyMessage = (event: MessageEvent) => {
+    const handleSpotifyMessage = async (event: MessageEvent) => {
       const origin = event.origin;
-      if (!origin.endsWith(".run.app") && !origin.includes("localhost")) {
+      if (!origin.endsWith(".run.app") && !origin.includes("localhost") && !origin.includes("github.io")) {
         return;
       }
 
-      if (event.data?.type === "SPOTIFY_AUTH_SUCCESS") {
-        const { payload } = event.data;
-        setSpotifyTokens(payload);
-        localStorage.setItem("zen_spotify_tokens", JSON.stringify(payload));
-        console.log("Spotify linked successfully via browser postMessage!");
+      if (event.data?.type === "SPOTIFY_AUTH_CODE") {
+        const { code } = event.data.payload;
+        try {
+          setSpotifyConnecting(true);
+          setSpotifyError(null);
+
+          const verifier = localStorage.getItem("spotify_code_verifier") || "";
+          const savedRedirectUri = localStorage.getItem("spotify_redirect_uri") || SpotifyService.getRedirectUri();
+          const clientId = await SpotifyService.getClientId();
+
+          if (!clientId) {
+            throw new Error("Spotify Client ID is not configured on the server.");
+          }
+          if (!verifier) {
+            throw new Error("Spotify PKCE code verifier not found. Please try linking your account again.");
+          }
+
+          const tokens = await SpotifyService.exchangeCodeWithPkce(
+            code,
+            verifier,
+            savedRedirectUri,
+            clientId
+          );
+
+          if (!tokens) {
+            throw new Error("Could not exchange authorization code with PKCE. Please verify that your Spotify Developer Dashboard allowed redirect URI is exactly configured.");
+          }
+
+          setSpotifyTokens(tokens);
+          localStorage.setItem("zen_spotify_tokens", JSON.stringify(tokens));
+          console.log("Spotify linked successfully via PKCE!");
+        } catch (err: any) {
+          console.error("PKCE exchange failed:", err);
+          setSpotifyError(`Spotify connection failed: ${err.message || "Failed to exchange credentials"}`);
+        } finally {
+          setSpotifyConnecting(false);
+        }
       } else if (event.data?.type === "SPOTIFY_AUTH_ERROR") {
         console.error("Spotify login failed:", event.data.error);
+        setSpotifyError(`Spotify connection failed: ${event.data.error}`);
       }
     };
 
@@ -1107,10 +1223,39 @@ export default function MusicWidget({
         return;
       }
 
-      const authUrl = await SpotifyService.getAuthUrl(window.location.origin);
-      if (!authUrl) {
-        throw new Error("Could not fetch auth URL");
+      const clientId = await SpotifyService.getClientId();
+      if (!clientId) {
+        throw new Error("Could not fetch Spotify client ID.");
       }
+
+      // Generate secure PKCE challenge and verifier
+      const verifier = SpotifyService.generateCodeVerifier();
+      localStorage.setItem("spotify_code_verifier", verifier);
+
+      const challenge = await SpotifyService.generateCodeChallenge(verifier);
+      const redirectUri = SpotifyService.getRedirectUri();
+      localStorage.setItem("spotify_redirect_uri", redirectUri);
+
+      const scopes = [
+        "streaming",
+        "user-modify-playback-state",
+        "user-read-playback-state",
+        "user-read-currently-playing"
+      ].join(" ");
+
+      const hasSubtle = SpotifyService.hasSubtleCrypto();
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: "code",
+        redirect_uri: redirectUri,
+        scope: scopes,
+        show_dialog: "true",
+        code_challenge_method: hasSubtle ? "S256" : "plain",
+        code_challenge: challenge,
+        state: window.location.origin
+      });
+
+      const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
 
       const width = 600;
       const height = 700;
@@ -1128,7 +1273,7 @@ export default function MusicWidget({
       }
     } catch (err: any) {
       console.error(err);
-      setSpotifyError("Error connecting to Spotify. Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server.");
+      setSpotifyError(`Error connecting to Spotify: ${err.message || "Please make sure SPOTIFY_CLIENT_ID is configured correctly on the server."}`);
     } finally {
       setSpotifyConnecting(false);
     }
@@ -1305,7 +1450,11 @@ export default function MusicWidget({
       setIsResolvingUrl(true);
       try {
         let target = currentTrack.url;
-        if (target.startsWith("resolve-archive://")) {
+        if (target.startsWith("youtube://") || target.includes("youtube.com") || target.includes("youtu.be") || currentTrack.id?.startsWith("youtube-")) {
+          // YouTube video, bypass streaming resolver
+          target = currentTrack.url;
+          setDuration(210); // Default fallback duration
+        } else if (target.startsWith("resolve-archive://")) {
           const identifier = target.replace("resolve-archive://", "");
           target = await resolveArchiveStream(identifier);
         } else if (target.startsWith("resolve-lastfm://")) {
@@ -1996,19 +2145,30 @@ export default function MusicWidget({
               <div className="flex-1 flex flex-col justify-between min-h-0 mt-1">
                 <div className="flex items-center gap-2.5 py-1 min-h-0">
                   <div className="relative shrink-0 shadow border border-slate-300 dark:border-zinc-800 rounded overflow-hidden bg-slate-200 w-[60px] h-[60px]">
-                    <AnimatePresence mode="popLayout">
-                      <motion.img 
-                        key={currentTrack.cover}
-                        src={currentTrack.cover || undefined} 
-                        alt={currentTrack.name} 
+                    {isYoutubePlayback && ytVideoId ? (
+                      <iframe
+                        ref={ytIframeRef}
+                        src={`https://www.youtube.com/embed/${ytVideoId}?autoplay=${isPlaying ? 1 : 0}&enablejsapi=1&controls=0&rel=0&showinfo=0&iv_load_policy=3&mute=${isMuted ? 1 : 0}`}
+                        title="YouTube Video"
+                        className="w-full h-full object-cover scale-[1.35]"
+                        allow="autoplay; encrypted-media"
                         referrerPolicy="no-referrer"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.3 }}
-                        className="w-full h-full object-cover"
                       />
-                    </AnimatePresence>
+                    ) : (
+                      <AnimatePresence mode="popLayout">
+                        <motion.img 
+                          key={currentTrack.cover}
+                          src={currentTrack.cover || undefined} 
+                          alt={currentTrack.name} 
+                          referrerPolicy="no-referrer"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.3 }}
+                          className="w-full h-full object-cover"
+                        />
+                      </AnimatePresence>
+                    )}
                     {isPlaying && (
                       <div className="absolute bottom-1 right-1 bg-black/60 text-white rounded p-0.5">
                         <Disc className="w-2.5 h-2.5 animate-spin-slow text-white" />
@@ -2580,20 +2740,31 @@ export default function MusicWidget({
                 {/* Now Playing Screen Layout */}
                 <div className="flex-1 flex items-center gap-3 py-2 min-h-0">
                   {/* Album Art Cover with smooth key animation */}
-                  <div className="relative shrink-0 shadow-md border border-slate-300 rounded overflow-hidden bg-slate-200">
-                    <AnimatePresence mode="popLayout">
-                      <motion.img 
-                        key={currentTrack.cover}
-                        src={currentTrack.cover || undefined} 
-                        alt={currentTrack.name} 
+                  <div className="relative shrink-0 shadow-md border border-slate-300 rounded overflow-hidden bg-slate-200 w-[85px] h-[85px]">
+                    {isYoutubePlayback && ytVideoId ? (
+                      <iframe
+                        ref={ytIframeRef}
+                        src={`https://www.youtube.com/embed/${ytVideoId}?autoplay=${isPlaying ? 1 : 0}&enablejsapi=1&controls=0&rel=0&showinfo=0&iv_load_policy=3&mute=${isMuted ? 1 : 0}`}
+                        title="YouTube Video"
+                        className="w-full h-full object-cover scale-[1.35]"
+                        allow="autoplay; encrypted-media"
                         referrerPolicy="no-referrer"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.3 }}
-                        className="w-[85px] h-[85px] object-cover"
                       />
-                    </AnimatePresence>
+                    ) : (
+                      <AnimatePresence mode="popLayout">
+                        <motion.img 
+                          key={currentTrack.cover}
+                          src={currentTrack.cover || undefined} 
+                          alt={currentTrack.name} 
+                          referrerPolicy="no-referrer"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.3 }}
+                          className="w-full h-full object-cover"
+                        />
+                      </AnimatePresence>
+                    )}
                     {isPlaying && (
                       <div className="absolute bottom-1 right-1 bg-black/60 text-white rounded p-0.5">
                         <Disc className="w-2.5 h-2.5 animate-spin-slow text-white" />
@@ -2868,13 +3039,26 @@ export default function MusicWidget({
             className="absolute inset-0 rounded-2xl blur-md transition-all duration-700 opacity-20" 
             style={{ backgroundColor: dominantColor, transform: isPlaying ? "scale(1.15)" : "scale(1.0)" }}
           />
-          <img 
-            src={finalCover || undefined} 
-            alt={finalTitle} 
-            referrerPolicy="no-referrer"
-            className="w-20 h-20 rounded-xl object-cover border relative z-10 transition-all duration-500 group-hover:scale-[1.03]"
-            style={{ borderColor: isPlaying ? dominantColor : "rgba(255,255,255,0.1)" }}
-          />
+          {isYoutubePlayback && ytVideoId ? (
+            <div className="w-20 h-20 rounded-xl overflow-hidden relative z-10 border border-white/10 shrink-0">
+              <iframe
+                ref={ytIframeRef}
+                src={`https://www.youtube.com/embed/${ytVideoId}?autoplay=${isPlaying ? 1 : 0}&enablejsapi=1&controls=0&rel=0&showinfo=0&iv_load_policy=3&mute=${isMuted ? 1 : 0}`}
+                title="YouTube Video"
+                className="w-full h-full object-cover scale-[1.35]"
+                allow="autoplay; encrypted-media"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          ) : (
+            <img 
+              src={finalCover || undefined} 
+              alt={finalTitle} 
+              referrerPolicy="no-referrer"
+              className="w-20 h-20 rounded-xl object-cover border relative z-10 transition-all duration-500 group-hover:scale-[1.03]"
+              style={{ borderColor: isPlaying ? dominantColor : "rgba(255,255,255,0.1)" }}
+            />
+          )}
           {currentTrackIdx >= 0 && (
             <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 border border-white/10">
               <Upload className="w-5 h-5 text-white mb-1 animate-bounce" />
@@ -3331,6 +3515,7 @@ export default function MusicWidget({
             onPlayTrack={handlePlayDiscoverTrack}
             onAddTrackToQueue={handleAddDiscoverTrackToQueue}
             dominantColor={dominantColor}
+            spotifyToken={spotifyTokens?.accessToken}
           />
         ) : (
           /* Spotify Tab content */
@@ -3458,19 +3643,25 @@ export default function MusicWidget({
 
                 {/* Faking Playback Status Card */}
                 <div className="bg-gradient-to-br from-emerald-950/15 to-zinc-950/90 p-4 rounded-2xl border border-emerald-500/25 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[140px]">
-                  {spotifyFakingStatus === "playing" && (
+                  {spotifyFakingStatus === "playing" && !spotifyTokenRefreshing && (
                     <div className="absolute w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl animate-pulse" />
                   )}
 
-                  {spotifyFakingStatus === "searching" && (
+                  {spotifyTokenRefreshing ? (
+                    <div className="flex flex-col items-center gap-2.5 py-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                      <p className="text-xs font-bold text-gray-200">Renewing Spotify Session...</p>
+                      <p className="text-[9px] text-gray-500 font-mono text-center max-w-[220px] leading-relaxed">
+                        Securing temporary background access credentials via client-side PKCE verification
+                      </p>
+                    </div>
+                  ) : spotifyFakingStatus === "searching" ? (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
                       <p className="text-xs font-bold text-gray-300">Searching track on Spotify...</p>
                       <p className="text-[9px] text-gray-500 font-mono uppercase tracking-wider">{currentTrack.name}</p>
                     </div>
-                  )}
-
-                  {spotifyFakingStatus === "playing" && spotifyCurrentTrack && (
+                  ) : (spotifyFakingStatus === "playing" && spotifyCurrentTrack) ? (
                     <div className="flex flex-col items-center gap-2.5 w-full">
                       {/* CD / Vinyl rotating artwork preview */}
                       <div className="relative w-14 h-14 rounded-full border border-emerald-500/30 overflow-hidden shadow-lg shadow-emerald-500/15 shrink-0">
@@ -3503,7 +3694,7 @@ export default function MusicWidget({
                         </p>
                       )}
                     </div>
-                  )}
+                  ) : null}
 
                   {spotifyFakingStatus === "paused" && (
                     <div className="flex flex-col items-center gap-2 py-3">

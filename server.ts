@@ -1705,6 +1705,89 @@ app.get("/api/music/search", async (req, res) => {
 
       res.json({ results: tracks });
     } 
+    else if (engine === "youtube") {
+      let results: any[] = [];
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (apiKey) {
+        try {
+          const resp = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=15&key=${apiKey}`);
+          if (resp.ok) {
+            const data = await resp.json() as any;
+            results = (data.items || []).map((item: any) => ({
+              id: `youtube-${item.id?.videoId}`,
+              name: item.snippet?.title || "Untitled Video",
+              artist: item.snippet?.channelTitle || "YouTube Creator",
+              url: `https://www.youtube.com/watch?v=${item.id?.videoId}`,
+              cover: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.default?.url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=400&h=400&fit=crop",
+              genre: "YouTube Video",
+              format: "YouTube stream",
+              duration: "LIVE"
+            })).filter((v: any) => v.id !== "youtube-undefined");
+          }
+        } catch (e) {
+          console.error("YouTube API key search failed, using scrape fallback:", e);
+        }
+      }
+
+      // Scraping fallback if API key not available or failed
+      if (results.length === 0) {
+        try {
+          const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAQ%253D%253D`;
+          const resp = await fetch(url, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+              "Accept-Language": "en-US,en;q=0.9"
+            }
+          });
+
+          if (resp.ok) {
+            const html = await resp.text();
+            const jsonStartMarker = "var ytInitialData = ";
+            const jsonEndMarker = ";</script>";
+            let jsonStr = "";
+            const startIndex = html.indexOf(jsonStartMarker);
+            if (startIndex !== -1) {
+              const cut = html.substring(startIndex + jsonStartMarker.length);
+              const endIndex = cut.indexOf(jsonEndMarker);
+              if (endIndex !== -1) {
+                jsonStr = cut.substring(0, endIndex);
+              }
+            }
+
+            if (jsonStr) {
+              const data = JSON.parse(jsonStr);
+              const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents;
+              if (contents && Array.isArray(contents)) {
+                for (const item of contents) {
+                  const video = item.videoRenderer;
+                  if (video && video.videoId) {
+                    const title = video.title?.runs?.[0]?.text || "Untitled Video";
+                    const videoId = video.videoId;
+                    const thumbnail = video.thumbnail?.thumbnails?.[0]?.url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=400&h=400&fit=crop";
+                    const channelTitle = video.ownerText?.runs?.[0]?.text || "YouTube Creator";
+                    results.push({
+                      id: `youtube-${videoId}`,
+                      name: title,
+                      artist: channelTitle,
+                      url: `https://www.youtube.com/watch?v=${videoId}`,
+                      cover: thumbnail,
+                      genre: "YouTube Video",
+                      format: "YouTube stream",
+                      duration: "LIVE"
+                    });
+                    if (results.length >= 15) break;
+                  }
+                }
+              }
+            }
+          }
+        } catch (scrapeErr) {
+          console.error("YouTube scraping failed:", scrapeErr);
+        }
+      }
+
+      res.json({ results });
+    }
     else if (engine === "archive") {
       const searchUrl = `https://archive.org/advancedsearch.php?q=mediatype:audio+AND+(title:(${encodeURIComponent(q)})+OR+creator:(${encodeURIComponent(q)}))&fl[]=identifier,title,creator,description,downloads&sort[]=downloads+desc&rows=20&output=json`;
       const iaResponse = await fetch(searchUrl);
@@ -1927,6 +2010,14 @@ app.get("/api/music/archive-stream/:identifier", async (req, res) => {
 
 // ----------------- SPOTIFY OAUTH ENDPOINTS -----------------
 
+app.get("/api/auth/spotify/client-id", (req, res) => {
+  const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
+  if (!spotifyClientId) {
+    return res.status(500).json({ error: "SPOTIFY_CLIENT_ID is not configured in environment variables." });
+  }
+  res.json({ clientId: spotifyClientId });
+});
+
 app.get("/api/auth/spotify/url", (req, res) => {
   const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
   if (!spotifyClientId) {
@@ -1988,125 +2079,61 @@ app.get("/auth/spotify/callback", async (req, res) => {
     return res.status(400).send("No authorization code provided.");
   }
 
-  try {
-    const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
-    const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-
-    if (!spotifyClientId || !spotifyClientSecret) {
-      throw new Error("Spotify client ID or client secret is not configured on the server.");
-    }
-
-    // Determine absolute callback redirect URL using state or robust headers
-    let origin = "";
-    if (state && state.startsWith("http")) {
-      origin = state;
-    } else {
-      const forwardedHost = req.headers["x-forwarded-host"] as string;
-      const host = forwardedHost || req.headers.host || "localhost:3000";
-      const forwardedProto = req.headers["x-forwarded-proto"] as string;
-      const protocol = forwardedProto || (req.secure ? "https" : "http");
-      origin = `${protocol}://${host}`;
-    }
-    const redirectUri = `${origin}/auth/spotify/callback`;
-
-    // Exchange authorization code for access & refresh tokens
-    const response = await fetch("https://accounts.spotify.com/api/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": "Basic " + Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString("base64")
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code: code,
-        redirect_uri: redirectUri
-      }).toString()
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Spotify token exchange fail:", errorText);
-      throw new Error(`Token exchange failed with status ${response.status}: ${errorText}`);
-    }
-
-    const tokenData = await response.json() as any;
-
-    res.send(`
-      <html>
-        <head>
-          <meta charset="utf-8"/>
-          <title>Spotify Authenticated</title>
-          <style>
-            body {
-              background-color: #09090b;
-              color: #ffffff;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-            }
-            .spinner {
-              border: 3px solid rgba(255,255,255,0.1);
-              width: 36px;
-              height: 36px;
-              border-radius: 50%;
-              border-left-color: #1ed760;
-              animation: spin 1s linear infinite;
-              margin-bottom: 20px;
-            }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-          </style>
-        </head>
-        <body>
-          <div class="spinner"></div>
-          <h2>Connection Successful!</h2>
-          <p>Transferring data to the app... This window will close shortly.</p>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: "SPOTIFY_AUTH_SUCCESS",
-                payload: {
-                  accessToken: ${JSON.stringify(tokenData.access_token)},
-                  refreshToken: ${JSON.stringify(tokenData.refresh_token)},
-                  expiresAt: ${Date.now() + (tokenData.expires_in * 1000)}
-                }
-              }, "*");
-              setTimeout(() => {
-                window.close();
-              }, 1200);
-            } else {
-              window.location.href = "/";
-            }
-          </script>
-        </body>
-      </html>
-    `);
-  } catch (err: any) {
-    console.error("Error exchanging code for Spotify tokens:", err);
-    res.send(`
-      <html>
-        <head><meta charset="utf-8"/><title>Spotify Exchange Error</title></head>
-        <body style="background-color: #09090b; color: #ef4444; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-          <div style="text-align: center; max-width: 400px; padding: 20px;">
-            <h2>Error Retrieving Connection Token</h2>
-            <p>${err.message}</p>
-            <p style="color: #a1a1aa; font-size: 13px;">This window will close shortly.</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: "SPOTIFY_AUTH_ERROR", error: "${err.message}" }, "*");
-              setTimeout(() => window.close(), 3000);
-            } else {
-              window.location.href = "/";
-            }
-          </script>
-        </body>
-      </html>
-    `);
-  }
+  // With PKCE, we pass the raw authorization code back to the React app client,
+  // which holds the cryptographically secure code_verifier inside localStorage.
+  // The client then exchanges the code and verifier directly with Spotify.
+  res.send(`
+    <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Spotify Authenticated</title>
+        <style>
+          body {
+            background-color: #09090b;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+          }
+          .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #1ed760;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+          }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+      </head>
+      <body>
+        <div class="spinner"></div>
+        <h2>Connection Authorized!</h2>
+        <p>Transferring code to secure workspace... This window will close shortly.</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: "SPOTIFY_AUTH_CODE",
+              payload: {
+                code: ${JSON.stringify(code)},
+                state: ${JSON.stringify(state)}
+              }
+            }, "*");
+            setTimeout(() => {
+              window.close();
+            }, 1000);
+          } else {
+            window.location.href = "/";
+          }
+        </script>
+      </body>
+    </html>
+  `);
 });
 
 app.post("/api/auth/spotify/refresh", async (req, res) => {

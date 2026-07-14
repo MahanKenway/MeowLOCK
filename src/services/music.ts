@@ -13,12 +13,102 @@ export interface Track {
 /**
  * Search tracks using Internet Archive or Funkwhale directly
  */
-export async function searchMusicClient(query: string, engine: "archive" | "funkwhale" | "lastfm" = "archive"): Promise<Track[]> {
+export async function searchMusicClient(
+  query: string,
+  engine: "archive" | "funkwhale" | "lastfm" | "spotify" | "youtube" | "global" = "archive",
+  spotifyToken?: string
+): Promise<Track[]> {
   if (!query || typeof query !== "string") {
     return [];
   }
 
   try {
+    if (engine === "youtube") {
+      const resp = await fetch(`/api/music/search?engine=youtube&q=${encodeURIComponent(query)}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        return (data.results || []).map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          artist: v.artist,
+          url: `youtube://${v.id.replace("youtube-", "")}`,
+          cover: v.cover,
+          format: "YouTube video",
+          duration: "LIVE"
+        }));
+      }
+      return [];
+    }
+
+    if (engine === "spotify" && spotifyToken) {
+      try {
+        const response = await fetch(
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`,
+          {
+            headers: {
+              Authorization: `Bearer ${spotifyToken}`
+            }
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const items = data.tracks?.items || [];
+          return items.map((t: any) => {
+            const durationSec = Math.floor(t.duration_ms / 1000);
+            const mins = Math.floor(durationSec / 60);
+            const secs = durationSec % 60;
+            return {
+              id: `spotify-${t.id}`,
+              name: t.name,
+              artist: t.artists?.map((a: any) => a.name).join(", ") || "Unknown Artist",
+              url: `spotify:track:${t.id}`,
+              cover: t.album?.images?.[0]?.url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=400&h=400&fit=crop",
+              format: "Spotify track",
+              duration: `${mins}:${secs.toString().padStart(2, "0")}`
+            };
+          });
+        }
+      } catch (err) {
+        console.error("Spotify search failed client-side:", err);
+      }
+      return [];
+    }
+
+    if (engine === "global") {
+      const promises: Promise<Track[]>[] = [];
+      
+      // 1. Spotify
+      if (spotifyToken) {
+        promises.push(
+          searchMusicClient(query, "spotify", spotifyToken).catch(() => [])
+        );
+      } else {
+        promises.push(Promise.resolve([]));
+      }
+
+      // 2. YouTube
+      promises.push(
+        searchMusicClient(query, "youtube").catch(() => [])
+      );
+
+      // 3. Archive
+      promises.push(
+        searchMusicClient(query, "archive").catch(() => [])
+      );
+
+      const [spotifyResults, youtubeResults, archiveResults] = await Promise.all(promises);
+
+      const merged: Track[] = [];
+      const maxLength = Math.max(spotifyResults.length, youtubeResults.length, archiveResults.length);
+      for (let i = 0; i < maxLength; i++) {
+        if (spotifyResults[i]) merged.push(spotifyResults[i]);
+        if (youtubeResults[i]) merged.push(youtubeResults[i]);
+        if (archiveResults[i]) merged.push(archiveResults[i]);
+      }
+      
+      return merged;
+    }
+
     if (engine === "archive") {
       const searchUrl = `https://archive.org/advancedsearch.php?q=mediatype:audio+AND+(title:(${encodeURIComponent(query)})+OR+creator:(${encodeURIComponent(query)}))&fl[]=identifier,title,creator,description,downloads&sort[]=downloads+desc&rows=20&output=json`;
       const response = await fetch(searchUrl);
@@ -216,6 +306,23 @@ export async function resolveLastfmStream(artist: string, track: string): Promis
         } catch (e) {}
       }
     }
+
+    // 4. Try YouTube Search as the ultimate resolver (guaranteed to find any song in the world!)
+    try {
+      const ytSearchUrl = `/api/music/search?engine=youtube&q=${encodeURIComponent(`${artist} ${track}`)}`;
+      const ytResponse = await fetch(ytSearchUrl);
+      if (ytResponse.ok) {
+        const ytData = await ytResponse.json();
+        const results = ytData.results || [];
+        if (results.length > 0 && results[0].id) {
+          const videoId = results[0].id.replace("youtube-", "");
+          console.log(`[StreamResolver] Auto-resolved "${artist} - ${track}" to YouTube video: ${videoId}`);
+          return `youtube://${videoId}`;
+        }
+      }
+    } catch (e) {
+      console.error("YouTube fallback search failed inside resolveLastfmStream:", e);
+    }
   } catch (err) {
     console.error("Error in lastfm resolution:", err);
   }
@@ -279,23 +386,130 @@ export function parseLRC(lrcText: string): { text: string; time: number }[] {
  * Fetch lyrics from free, CORS-enabled LRCLIB API directly
  */
 export async function fetchLrcLib(title: string, artist: string): Promise<any | null> {
-  try {
-    const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${title}`)}`;
-    const response = await fetch(searchUrl);
-    if (!response.ok) return null;
-    const results = await response.json();
-    if (Array.isArray(results) && results.length > 0) {
-      // Find the best match
-      const exact = results.find(
-        (r: any) => 
-          r.trackName?.toLowerCase().trim() === title.toLowerCase().trim() &&
-          r.artistName?.toLowerCase().trim() === artist.toLowerCase().trim()
-      );
-      return exact || results[0];
+  const tryLrcLibSearch = async (query: string): Promise<any | null> => {
+    try {
+      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+      const response = await fetch(searchUrl);
+      if (!response.ok) return null;
+      const results = await response.json();
+      if (Array.isArray(results) && results.length > 0) {
+        // Find exact match or take first
+        const exact = results.find(
+          (r: any) => 
+            r.trackName?.toLowerCase().trim() === title.toLowerCase().trim() &&
+            (!artist || r.artistName?.toLowerCase().trim() === artist.toLowerCase().trim())
+        );
+        return exact || results[0];
+      }
+    } catch (e) {
+      console.warn(`LRCLIB search query "${query}" failed:`, e);
     }
-  } catch (err) {
-    console.warn("Failed to fetch from LRCLIB", err);
+    return null;
+  };
+
+  // 1. Pre-cleaning (strip extensions, track numbers, parenthesis etc.)
+  let cleanName = title
+    .replace(/\.(mp3|wav|m4a|flac|aac|ogg|wma|mp4)$/i, "")
+    .replace(/^[0-9]+[\s\-._]+/g, "")
+    .replace(/\(.*?\)/g, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/- Live$/gi, "")
+    .trim();
+
+  if (cleanName.includes("_")) {
+    cleanName = cleanName.replace(/_/g, " ");
   }
+
+  let extractedArtist = "";
+  let extractedTitle = "";
+  const separators = [" - ", " -", "- ", "-", " | ", "|", " : ", ":", " ~ ", "~"];
+  for (const sep of separators) {
+    if (cleanName.includes(sep)) {
+      const parts = cleanName.split(sep);
+      if (parts.length >= 2) {
+        extractedArtist = parts[0].trim();
+        extractedTitle = parts[1].trim();
+        break;
+      }
+    }
+  }
+
+  const cleanArtist = artist ? artist.replace(/\(.*?\)/g, "").trim() : "";
+
+  // 9-tier search strategies
+  const searchStrategies: string[] = [];
+
+  // Tier 1: Artist + Title
+  if (cleanArtist && cleanName) {
+    searchStrategies.push(`${cleanArtist} ${cleanName}`);
+  }
+
+  // Tier 2: Extracted Artist + Title
+  if (extractedArtist && extractedTitle) {
+    searchStrategies.push(`${extractedArtist} ${extractedTitle}`);
+  }
+
+  // Tier 3: Title only
+  if (cleanName) {
+    searchStrategies.push(cleanName);
+  }
+
+  // Tier 4: Extracted Title only
+  if (extractedTitle) {
+    searchStrategies.push(extractedTitle);
+  }
+
+  // Tier 5: Title + Extracted Artist (alternative)
+  if (cleanName && extractedArtist) {
+    searchStrategies.push(`${cleanName} ${extractedArtist}`);
+  }
+
+  // Tier 6: Extracted Title + Clean Artist
+  if (extractedTitle && cleanArtist) {
+    searchStrategies.push(`${extractedTitle} ${cleanArtist}`);
+  }
+
+  // Tier 7: Clean Artist + Extracted Title
+  if (cleanArtist && extractedTitle) {
+    searchStrategies.push(`${cleanArtist} ${extractedTitle}`);
+  }
+
+  // Tier 8: Left part of title (before first punctuation/space if long)
+  const leftPart = cleanName.split(/[\s,]+/)[0];
+  if (leftPart && leftPart.length > 3 && leftPart !== cleanName) {
+    searchStrategies.push(`${cleanArtist} ${leftPart}`.trim());
+  }
+
+  // Tier 9: Tokenized keyphrase
+  const stopWords = [
+    "remix", "cover", "lyrics", "feat", "ft", "video", "official", "original", "mix",
+    "music", "song", "audio", "hq", "hd", "1080p", "720p", "best", "mp3", "download",
+    "دانلود", "آهنگ", "جدید", "تصنیف", "موزیک", "آلبوم", "قدیمی", "سنتی", "با", "کیفیت"
+  ];
+  const mergedForTokenizing = cleanArtist ? `${cleanName} ${cleanArtist}` : cleanName;
+  const words = mergedForTokenizing.split(/[\s\-._+,/:|~()\[\]]+/);
+  const filteredWords = words
+    .map(w => w.replace(/[^\w\s\u0600-\u06FF]/g, "").trim())
+    .filter(w => w.length > 1 && !stopWords.includes(w.toLowerCase()));
+
+  if (filteredWords.length > 0) {
+    searchStrategies.push(filteredWords.join(" "));
+  }
+
+  // Execute sequentially
+  console.log(`[LyricsService] Initiating 9-tier search for lyrics: "${title}" by "${artist}"`);
+  const uniqueStrategies = Array.from(new Set(searchStrategies));
+  for (let i = 0; i < uniqueStrategies.length; i++) {
+    const q = uniqueStrategies[i];
+    console.log(`[LyricsService] Strategy Tier ${i + 1}: "${q}"`);
+    const match = await tryLrcLibSearch(q);
+    if (match) {
+      console.log(`[LyricsService] Match found on Tier ${i + 1}: "${match.trackName}" by "${match.artistName}"`);
+      return match;
+    }
+  }
+
+  console.warn(`[LyricsService] No lyrics found after 9-tier search fallback for: "${title}"`);
   return null;
 }
 
