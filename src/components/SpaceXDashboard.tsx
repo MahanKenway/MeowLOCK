@@ -98,6 +98,7 @@ interface RecentLaunch {
 
 interface SpaceXData {
   nextLaunch: NextLaunch;
+  upcomingLaunches: NextLaunch[];
   rockets: RocketInfo[];
   company: CompanyStats;
   launchpads: LaunchpadInfo[];
@@ -111,7 +112,7 @@ const FALLBACK_SPACEX_DATA: SpaceXData = {
     name: "Crew-10",
     rocket: "5e9d0d95eda69973a809d1ec",
     rocketName: "Falcon 9",
-    date_utc: new Date(Date.now() + 86400 * 5 * 1000).toISOString(), // 5 days from now
+    date_utc: "2026-09-18T14:30:00.000Z", // Static date
     launchpad: "5e9e4502f509094188566f88",
     launchpadName: "KSC LC-39A",
     details: "SpaceX's tenth operational Crew Dragon mission to the International Space Station, carrying four astronauts to continue vital scientific research.",
@@ -120,6 +121,47 @@ const FALLBACK_SPACEX_DATA: SpaceXData = {
     wikipedia: "https://en.wikipedia.org/wiki/SpaceX_Crew-10",
     id: "crew-10-fallback"
   },
+  upcomingLaunches: [
+    {
+      name: "Crew-10",
+      rocket: "5e9d0d95eda69973a809d1ec",
+      rocketName: "Falcon 9",
+      date_utc: "2026-09-18T14:30:00.000Z",
+      launchpad: "5e9e4502f509094188566f88",
+      launchpadName: "KSC LC-39A",
+      details: "SpaceX's tenth operational Crew Dragon mission to the International Space Station, carrying four astronauts to continue vital scientific research.",
+      patch: "",
+      webcast: "https://www.youtube.com/spacex",
+      wikipedia: "https://en.wikipedia.org/wiki/SpaceX_Crew-10",
+      id: "crew-10-fallback"
+    },
+    {
+      name: "Starlink Group 8-1",
+      rocket: "5e9d0d95eda69973a809d1ec",
+      rocketName: "Falcon 9",
+      date_utc: "2026-09-24T06:12:00.000Z",
+      launchpad: "5e9e4501f509094ba4566f84",
+      launchpadName: "CCSFS SLC-40",
+      details: "A batch of Starlink satellites to the low Earth orbit constellation to expand orbital internet coverage globally.",
+      patch: "",
+      webcast: "https://www.youtube.com/spacex",
+      wikipedia: "https://en.wikipedia.org/wiki/Starlink",
+      id: "starlink-8-1-upcoming"
+    },
+    {
+      name: "USSF-44 Mission",
+      rocket: "5e9d0d95eda69973a809d1ed",
+      rocketName: "Falcon Heavy",
+      date_utc: "2026-10-05T18:00:00.000Z",
+      launchpad: "5e9e4502f509094188566f88",
+      launchpadName: "KSC LC-39A",
+      details: "Classified payload launch for the United States Space Force utilizing the massive lift capacity of Falcon Heavy.",
+      patch: "",
+      webcast: "https://www.youtube.com/spacex",
+      wikipedia: "https://en.wikipedia.org/wiki/Falcon_Heavy",
+      id: "ussf44-upcoming"
+    }
+  ],
   rockets: [
     {
       id: "falcon9",
@@ -206,7 +248,7 @@ const FALLBACK_SPACEX_DATA: SpaceXData = {
       patch: "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=80&q=80",
       success: true,
       rocketName: "Falcon 9",
-      date_utc: new Date(Date.now() - 86400 * 2 * 1000).toISOString()
+      date_utc: "2026-07-13T10:00:00.000Z"
     },
     {
       id: "recent-2",
@@ -214,7 +256,7 @@ const FALLBACK_SPACEX_DATA: SpaceXData = {
       patch: "",
       success: true,
       rocketName: "Falcon 9",
-      date_utc: new Date(Date.now() - 86400 * 6 * 1000).toISOString()
+      date_utc: "2026-07-09T10:00:00.000Z"
     },
     {
       id: "recent-3",
@@ -222,7 +264,7 @@ const FALLBACK_SPACEX_DATA: SpaceXData = {
       patch: "",
       success: true,
       rocketName: "Falcon 9",
-      date_utc: new Date(Date.now() - 86400 * 12 * 1000).toISOString()
+      date_utc: "2026-07-03T10:00:00.000Z"
     }
   ]
 };
@@ -232,8 +274,32 @@ const CACHE_KEY = "zen_spacex_dashboard_cache";
 const CACHE_EXPIRY = 300000; // 5 minutes cache
 
 export default function SpaceXDashboard() {
-  const [data, setData] = useState<SpaceXData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [data, setData] = useState<SpaceXData | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.payload) {
+          return parsed.payload;
+        }
+      }
+    } catch (e) {
+      console.log("Error loading synchronous SpaceX cache", e);
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.payload) {
+          return false; // Cache loaded, no need to show loading skeleton
+        }
+      }
+    } catch (e) {}
+    return true;
+  });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -252,76 +318,172 @@ export default function SpaceXDashboard() {
   // Specific view selectors
   const [selectedRocketIdx, setSelectedRocketIdx] = useState<number>(0);
   const [selectedLaunchpadIdx, setSelectedLaunchpadIdx] = useState<number>(0);
+  const [selectedUpcomingId, setSelectedUpcomingId] = useState<string | null>(null);
 
   // Countdown timer State
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchTriggered, setLaunchTriggered] = useState<boolean>(false);
 
-  // Fetch API with caching
+  // Computed launch to preview/track
+  const currentLaunch = data
+    ? (data.upcomingLaunches?.find(l => l.id === selectedUpcomingId) || data.nextLaunch)
+    : FALLBACK_SPACEX_DATA.nextLaunch;
+
+  // Fetch API with caching (stale-while-revalidate strategy)
   const fetchSpaceXData = async (force = false) => {
     setIsRefreshing(true);
     setErrorMsg(null);
 
-    // Check Cache first unless forced
-    if (!force) {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        try {
-          const { timestamp, payload } = JSON.parse(cached);
-          if (Date.now() - timestamp < CACHE_EXPIRY) {
-            setData(payload);
-            setIsLoading(false);
-            setIsRefreshing(false);
-            setIsUsingFallback(false);
-            return;
-          }
-        } catch (e) {
-          console.error("SpaceX Cache reading error:", e);
+    // 1. STALE: Try to load from localStorage cache immediately to keep UI responsive
+    let cachePayload: SpaceXData | null = null;
+    let cacheTimestamp = 0;
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        cachePayload = parsed.payload;
+        cacheTimestamp = parsed.timestamp;
+        if (cachePayload) {
+          setData(cachePayload);
+          setIsLoading(false);
+          setIsUsingFallback(false);
         }
+      } catch (e) {
+        console.error("SpaceX Cache reading error:", e);
       }
     }
 
+    // 2. REVALIDATE: Determine if we need to hit the network
+    const isCacheFresh = cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_EXPIRY);
+    const shouldFetch = !isCacheFresh || force || !cachePayload;
+
+    if (!shouldFetch) {
+      setIsRefreshing(false);
+      return;
+    }
+
     try {
-      // Fetch concurrent requests from official v4 api
-      const [nextRes, rocketsRes, companyRes, launchpadsRes, starlinkRes, pastLaunchesRes] = await Promise.all([
-        fetch("https://api.spacexdata.com/v4/launches/next").then(r => r.ok ? r.json() : null),
-        fetch("https://api.spacexdata.com/v4/rockets").then(r => r.ok ? r.json() : null),
-        fetch("https://api.spacexdata.com/v4/company").then(r => r.ok ? r.json() : null),
-        fetch("https://api.spacexdata.com/v4/launchpads").then(r => r.ok ? r.json() : null),
-        fetch("https://api.spacexdata.com/v4/starlink").then(r => r.ok ? r.json() : null),
-        fetch("https://api.spacexdata.com/v4/launches/past").then(r => r.ok ? r.json() : null)
+      // Fetch concurrent requests from official v5 api for launches (and v4 for other resources)
+      const [nextRes, upcomingRes, rocketsRes, companyRes, launchpadsRes, starlinkRes, pastLaunchesRes] = await Promise.all([
+        fetch("https://api.spacexdata.com/v5/launches/next").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("https://api.spacexdata.com/v5/launches/upcoming").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("https://api.spacexdata.com/v4/rockets").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("https://api.spacexdata.com/v4/company").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("https://api.spacexdata.com/v4/launchpads").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("https://api.spacexdata.com/v4/starlink").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("https://api.spacexdata.com/v5/launches/past").then(r => r.ok ? r.json() : null).catch(() => null)
       ]);
 
-      // Map Next Launch details
+      // Process upcoming launches first to find the best candidate for the next launch
       let resolvedNextLaunch: NextLaunch = FALLBACK_SPACEX_DATA.nextLaunch;
-      if (nextRes) {
-        // Find rocket name
-        let rName = "Falcon 9";
-        if (rocketsRes && Array.isArray(rocketsRes)) {
-          const foundR = rocketsRes.find(r => r.id === nextRes.rocket);
-          if (foundR) rName = foundR.name;
+      let mappedUpcoming: NextLaunch[] = [];
+
+      if (upcomingRes && Array.isArray(upcomingRes)) {
+        // Sort ascending by date
+        const sortedUpcoming = [...upcomingRes]
+          .filter(l => l.date_utc)
+          .sort((a, b) => new Date(a.date_utc).getTime() - new Date(b.date_utc).getTime());
+
+        // Find first launch in the future relative to local clock
+        const nowMs = Date.now();
+        let bestUpcomingCandidate = sortedUpcoming.find(
+          l => new Date(l.date_utc).getTime() > nowMs
+        );
+
+        // If no future launch found, take the first upcoming one
+        if (!bestUpcomingCandidate && sortedUpcoming.length > 0) {
+          bestUpcomingCandidate = sortedUpcoming[0];
         }
 
-        // Find launchpad name
-        let lName = "LC-39A";
-        if (launchpadsRes && Array.isArray(launchpadsRes)) {
-          const foundL = launchpadsRes.find(lp => lp.id === nextRes.launchpad);
-          if (foundL) lName = foundL.name;
+        // If we found a candidate, let's use it. Otherwise, fallback to nextRes.
+        const nextLaunchData = bestUpcomingCandidate || nextRes;
+
+        if (nextLaunchData) {
+          let rName = "Falcon 9";
+          if (rocketsRes && Array.isArray(rocketsRes)) {
+            const foundR = rocketsRes.find((r: any) => r.id === nextLaunchData.rocket);
+            if (foundR) rName = foundR.name;
+          }
+
+          let lName = "LC-39A";
+          if (launchpadsRes && Array.isArray(launchpadsRes)) {
+            const foundL = launchpadsRes.find((lp: any) => lp.id === nextLaunchData.launchpad);
+            if (foundL) lName = foundL.name;
+          }
+
+          resolvedNextLaunch = {
+            name: nextLaunchData.name || "Next SpaceX Mission",
+            rocket: nextLaunchData.rocket || "",
+            rocketName: rName,
+            date_utc: nextLaunchData.date_utc || new Date().toISOString(),
+            launchpad: nextLaunchData.launchpad || "",
+            launchpadName: lName,
+            details: nextLaunchData.details || "Details are classified or will be announced soon.",
+            patch: nextLaunchData.links?.patch?.small || nextLaunchData.links?.patch?.large || "",
+            webcast: nextLaunchData.links?.webcast || "https://www.youtube.com/spacex",
+            wikipedia: nextLaunchData.links?.wikipedia || "https://en.wikipedia.org/wiki/SpaceX",
+            id: nextLaunchData.id || "next-launch-id"
+          };
         }
 
-        resolvedNextLaunch = {
-          name: nextRes.name || "Next SpaceX Mission",
-          rocket: nextRes.rocket || "",
-          rocketName: rName,
-          date_utc: nextRes.date_utc || new Date().toISOString(),
-          launchpad: nextRes.launchpad || "",
-          launchpadName: lName,
-          details: nextRes.details || "Details are classified or will be announced soon.",
-          patch: nextRes.links?.patch?.small || nextRes.links?.patch?.large || "",
-          webcast: nextRes.links?.webcast || "https://www.youtube.com/spacex",
-          wikipedia: nextRes.links?.wikipedia || "https://en.wikipedia.org/wiki/SpaceX",
-          id: nextRes.id || "next-launch-id"
-        };
+        // Map the upcoming launches list for schedule (limit to 6)
+        mappedUpcoming = sortedUpcoming.slice(0, 6).map((l: any) => {
+          let rName = "Falcon 9";
+          if (rocketsRes && Array.isArray(rocketsRes)) {
+            const foundR = rocketsRes.find((r: any) => r.id === l.rocket);
+            if (foundR) rName = foundR.name;
+          }
+
+          let lName = "LC-39A";
+          if (launchpadsRes && Array.isArray(launchpadsRes)) {
+            const foundL = launchpadsRes.find((lp: any) => lp.id === l.launchpad);
+            if (foundL) lName = foundL.name;
+          }
+
+          return {
+            name: l.name || "SpaceX Mission",
+            rocket: l.rocket || "",
+            rocketName: rName,
+            date_utc: l.date_utc || new Date().toISOString(),
+            launchpad: l.launchpad || "",
+            launchpadName: lName,
+            details: l.details || "Details are classified or will be announced soon.",
+            patch: l.links?.patch?.small || l.links?.patch?.large || "",
+            webcast: l.links?.webcast || "https://www.youtube.com/spacex",
+            wikipedia: l.links?.wikipedia || "https://en.wikipedia.org/wiki/SpaceX",
+            id: l.id || "upcoming-launch-id"
+          };
+        });
+      } else {
+        // Fallback if upcomingRes failed but nextRes worked
+        if (nextRes) {
+          let rName = "Falcon 9";
+          if (rocketsRes && Array.isArray(rocketsRes)) {
+            const foundR = rocketsRes.find((r: any) => r.id === nextRes.rocket);
+            if (foundR) rName = foundR.name;
+          }
+
+          let lName = "LC-39A";
+          if (launchpadsRes && Array.isArray(launchpadsRes)) {
+            const foundL = launchpadsRes.find((lp: any) => lp.id === nextRes.launchpad);
+            if (foundL) lName = foundL.name;
+          }
+
+          resolvedNextLaunch = {
+            name: nextRes.name || "Next SpaceX Mission",
+            rocket: nextRes.rocket || "",
+            rocketName: rName,
+            date_utc: nextRes.date_utc || new Date().toISOString(),
+            launchpad: nextRes.launchpad || "",
+            launchpadName: lName,
+            details: nextRes.details || "Details are classified or will be announced soon.",
+            patch: nextRes.links?.patch?.small || nextRes.links?.patch?.large || "",
+            webcast: nextRes.links?.webcast || "https://www.youtube.com/spacex",
+            wikipedia: nextRes.links?.wikipedia || "https://en.wikipedia.org/wiki/SpaceX",
+            id: nextRes.id || "next-launch-id"
+          };
+        }
+        mappedUpcoming = [resolvedNextLaunch];
       }
 
       // Map rockets list
@@ -418,6 +580,7 @@ export default function SpaceXDashboard() {
 
       const combinedData: SpaceXData = {
         nextLaunch: resolvedNextLaunch,
+        upcomingLaunches: mappedUpcoming,
         rockets: resolvedRockets,
         company: resolvedCompany,
         launchpads: resolvedLaunchpads,
@@ -434,7 +597,7 @@ export default function SpaceXDashboard() {
       setData(combinedData);
       setIsUsingFallback(false);
     } catch (err) {
-      console.warn("SpaceX API fetch failed, utilizing robust offline cache:", err);
+      console.log("SpaceX API fetch failed, utilizing robust offline cache:", err);
       // Fallback to cached data if exists, otherwise hardcoded telemetry
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -471,10 +634,10 @@ export default function SpaceXDashboard() {
 
   // Live Countdown logic
   useEffect(() => {
-    if (!data?.nextLaunch?.date_utc) return;
+    if (!currentLaunch?.date_utc) return;
 
     const updateCountdown = () => {
-      const launchTime = new Date(data.nextLaunch.date_utc).getTime();
+      const launchTime = new Date(currentLaunch.date_utc).getTime();
       const now = Date.now();
       const difference = launchTime - now;
 
@@ -499,7 +662,7 @@ export default function SpaceXDashboard() {
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, [data, launchTriggered]);
+  }, [currentLaunch, launchTriggered]);
 
   // Synthesized Space Sound drone
   const startSpaceHum = () => {
@@ -802,161 +965,220 @@ export default function SpaceXDashboard() {
                 exit={{ opacity: 0, y: -8 }}
                 className="space-y-4"
               >
-                {/* Countdown & Patch Hero Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Countdown Card (Glassmorphism) */}
-                  <div className="md:col-span-2 bg-[#121214]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                      <Rocket className="w-32 h-32 text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[9px] font-bold text-emerald-400 font-mono tracking-widest uppercase">NEXT MISSION COUNTDOWN</span>
-                      </div>
-                      <h3 className="text-lg font-black text-white truncate tracking-tight">{data.nextLaunch.name}</h3>
-                      <p className="text-[11px] text-gray-400 font-mono flex items-center gap-1.5 mt-1">
-                        <Rocket className="w-3.5 h-3.5 text-[#9f75ff]" />
-                        <span>Vehicle: <strong>{data.nextLaunch.rocketName}</strong></span>
-                        <span className="text-gray-600">|</span>
-                        <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Pad: <strong>{data.nextLaunch.launchpadName}</strong></span>
-                      </p>
-                    </div>
-
-                    {/* Digital Countdown HUD */}
-                    <div className="grid grid-cols-4 gap-2.5 my-4">
-                      {[
-                        { label: "DAYS", value: countdown.days },
-                        { label: "HOURS", value: countdown.hours },
-                        { label: "MINS", value: countdown.minutes },
-                        { label: "SECS", value: countdown.seconds }
-                      ].map((item, idx) => (
-                        <div key={idx} className="bg-black/40 border border-white/5 rounded-xl p-2.5 text-center flex flex-col justify-center">
-                          <span className="text-2xl font-black font-mono text-white leading-none tracking-tight">
-                            {String(item.value).padStart(2, "0")}
-                          </span>
-                          <span className="text-[8px] font-bold text-gray-500 mt-1 tracking-wider">{item.label}</span>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Left 2 Columns: Selected Launch Hero Details */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {/* Countdown & Patch Hero Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Countdown Card (Glassmorphism) */}
+                      <div className="md:col-span-2 bg-[#121214]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                          <Rocket className="w-32 h-32 text-white" />
                         </div>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                        <span>Launch Local:</span>
-                        <strong className="text-white">{new Date(data.nextLaunch.date_utc).toLocaleString()}</strong>
-                      </p>
-                      {/* Interactive Manual launch button */}
-                      <button 
-                        onClick={triggerManualLaunch} 
-                        className="ml-auto px-2 py-1 bg-white/5 hover:bg-orange-500/20 hover:border-orange-500/40 text-orange-400 border border-white/10 rounded-lg text-[9px] font-bold transition-all cursor-pointer"
-                      >
-                        Launch Simulation
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Mission Patch Card */}
-                  <div className="bg-[#121214]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center relative">
-                    <div className="w-24 h-24 relative flex items-center justify-center">
-                      {data.nextLaunch.patch ? (
-                        <img
-                          src={data.nextLaunch.patch}
-                          alt="Patch"
-                          loading="lazy"
-                          className="max-w-full max-h-full object-contain filter drop-shadow-[0_4px_12px_rgba(124,58,237,0.3)] hover:scale-105 transition-transform"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-purple-900/30 to-amber-900/20 border border-white/10 flex items-center justify-center">
-                          <Sparkles className="w-8 h-8 text-amber-400/40 animate-pulse" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-3 space-y-1">
-                      <span className="inline-flex px-2 py-0.5 bg-purple-500/10 text-purple-300 text-[8px] font-mono font-bold rounded-full uppercase tracking-wider">OFFICIAL PATCH</span>
-                      <p className="text-[9px] text-gray-400 mt-1 max-w-[140px] truncate mx-auto">ID: {data.nextLaunch.id.substring(0, 10)}...</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Details Description */}
-                <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-2">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-[#7c3aed]" />
-                    <span>Mission Operations Details</span>
-                  </h4>
-                  <p className="text-[11px] leading-relaxed text-gray-300 text-justify">
-                    {data.nextLaunch.details}
-                  </p>
-                  <div className="flex gap-2 pt-2">
-                    {data.nextLaunch.webcast && (
-                      <a
-                        href={data.nextLaunch.webcast}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-red-600/15 hover:bg-red-600/30 border border-red-600/30 text-red-300 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer decoration-transparent"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Watch Webcast</span>
-                      </a>
-                    )}
-                    {data.nextLaunch.wikipedia && (
-                      <a
-                        href={data.nextLaunch.wikipedia}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer decoration-transparent"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Read Mission Wiki</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {/* Recent Past Launches Subsection */}
-                <div className="space-y-2 pt-2">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Recent Missions Launchlog</h3>
-                  <div className="space-y-2">
-                    {data.recentLaunches.map((launch) => (
-                      <div
-                        key={launch.id}
-                        className="flex items-center gap-3 p-3 bg-white/[0.01] hover:bg-white/[0.04] border border-white/5 rounded-xl transition-all"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-black/40 overflow-hidden shrink-0 flex items-center justify-center p-1">
-                          {launch.patch ? (
-                            <img src={launch.patch} alt={launch.name} loading="lazy" className="max-w-full max-h-full object-contain" />
-                          ) : (
-                            <Rocket className="w-5 h-5 text-gray-600" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-[11px] font-bold text-white truncate">{launch.name}</h4>
-                          <p className="text-[9px] text-gray-400 font-mono mt-0.5">
-                            {launch.rocketName} • {new Date(launch.date_utc).toLocaleDateString()}
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[9px] font-bold text-emerald-400 font-mono tracking-widest uppercase">
+                              {currentLaunch.id === data?.nextLaunch.id ? "IMMEDIATE ORBITAL TARGET" : "SCHEDULED MISSION PREVIEW"}
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-black text-white truncate tracking-tight">{currentLaunch.name}</h3>
+                          <p className="text-[11px] text-gray-400 font-mono flex items-center gap-1.5 mt-1">
+                            <Rocket className="w-3.5 h-3.5 text-[#9f75ff]" />
+                            <span>Vehicle: <strong>{currentLaunch.rocketName}</strong></span>
+                            <span className="text-gray-600">|</span>
+                            <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Pad: <strong>{currentLaunch.launchpadName}</strong></span>
                           </p>
                         </div>
-                        <div className="shrink-0 flex items-center gap-1">
-                          {launch.success === true ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-[8px] font-mono font-bold">
-                              <CheckCircle2 className="w-2.5 h-2.5" />
-                              SUCCESS
-                            </span>
-                          ) : launch.success === false ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-full text-rose-400 text-[8px] font-mono font-bold">
-                              <XCircle className="w-2.5 h-2.5" />
-                              FAILURE
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-500/10 border border-gray-500/20 rounded-full text-gray-400 text-[8px] font-mono font-bold">
-                              <HelpCircle className="w-2.5 h-2.5" />
-                              UNKNOWN
-                            </span>
-                          )}
+
+                        {/* Digital Countdown HUD */}
+                        <div className="grid grid-cols-4 gap-2.5 my-4">
+                          {[
+                            { label: "DAYS", value: countdown.days },
+                            { label: "HOURS", value: countdown.hours },
+                            { label: "MINS", value: countdown.minutes },
+                            { label: "SECS", value: countdown.seconds }
+                          ].map((item, idx) => (
+                            <div key={idx} className="bg-black/40 border border-white/5 rounded-xl p-2.5 text-center flex flex-col justify-center">
+                              <span className="text-2xl font-black font-mono text-white leading-none tracking-tight">
+                                {String(item.value).padStart(2, "0")}
+                              </span>
+                              <span className="text-[8px] font-bold text-gray-500 mt-1 tracking-wider">{item.label}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                            <span>Launch Local:</span>
+                            <strong className="text-white">{new Date(currentLaunch.date_utc).toLocaleString()}</strong>
+                          </p>
+                          {/* Interactive Manual launch button */}
+                          <button 
+                            onClick={triggerManualLaunch} 
+                            className="ml-auto px-2 py-1 bg-white/5 hover:bg-orange-500/20 hover:border-orange-500/40 text-orange-400 border border-white/10 rounded-lg text-[9px] font-bold transition-all cursor-pointer"
+                          >
+                            Launch Simulation
+                          </button>
                         </div>
                       </div>
-                    ))}
+
+                      {/* Mission Patch Card */}
+                      <div className="bg-[#121214]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center relative">
+                        <div className="w-24 h-24 relative flex items-center justify-center">
+                          {currentLaunch.patch ? (
+                            <img
+                              src={currentLaunch.patch}
+                              alt="Patch"
+                              loading="lazy"
+                              className="max-w-full max-h-full object-contain filter drop-shadow-[0_4px_12px_rgba(124,58,237,0.3)] hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-purple-900/30 to-amber-900/20 border border-white/10 flex items-center justify-center">
+                              <Sparkles className="w-8 h-8 text-amber-400/40 animate-pulse" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          <span className="inline-flex px-2 py-0.5 bg-purple-500/10 text-purple-300 text-[8px] font-mono font-bold rounded-full uppercase tracking-wider">OFFICIAL PATCH</span>
+                          <p className="text-[9px] text-gray-400 mt-1 max-w-[140px] truncate mx-auto">ID: {currentLaunch.id.substring(0, 10)}...</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Details Description */}
+                    <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-2">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <Info className="w-4 h-4 text-[#7c3aed]" />
+                        <span>Mission Operations Details</span>
+                      </h4>
+                      <p className="text-[11px] leading-relaxed text-gray-300 text-justify">
+                        {currentLaunch.details}
+                      </p>
+                      <div className="flex gap-2 pt-2">
+                        {currentLaunch.webcast && (
+                          <a
+                            href={currentLaunch.webcast}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 bg-red-600/15 hover:bg-red-600/30 border border-red-600/30 text-red-300 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer decoration-transparent"
+                          >
+                            <Video className="w-3.5 h-3.5" />
+                            <span>Watch Webcast</span>
+                          </a>
+                        )}
+                        {currentLaunch.wikipedia && (
+                          <a
+                            href={currentLaunch.wikipedia}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer decoration-transparent"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Read Mission Wiki</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Upcoming Schedule list & Recent Log */}
+                  <div className="space-y-4">
+                    {/* Launch Schedule */}
+                    <div className="bg-[#121214]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                          <span>Launch Schedule</span>
+                        </h3>
+                        <span className="text-[8px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">UPCOMING</span>
+                      </div>
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 select-none no-scrollbar">
+                        {data.upcomingLaunches && data.upcomingLaunches.length > 0 ? (
+                          data.upcomingLaunches.map((launch) => {
+                            const isSelected = currentLaunch?.id === launch.id;
+                            const isFuture = new Date(launch.date_utc).getTime() > Date.now();
+                            return (
+                              <div
+                                key={launch.id}
+                                onClick={() => setSelectedUpcomingId(launch.id)}
+                                className={`p-2 rounded-xl border transition-all cursor-pointer text-left flex items-center gap-2 ${
+                                  isSelected
+                                    ? "bg-amber-500/10 border-amber-500/30 ring-1 ring-amber-500/20"
+                                    : "bg-white/[0.01] hover:bg-white/[0.04] border-white/5"
+                                }`}
+                              >
+                                <div className="w-8 h-8 rounded-lg bg-black/40 flex items-center justify-center shrink-0 p-1">
+                                  {launch.patch ? (
+                                    <img src={launch.patch} alt="" className="max-w-full max-h-full object-contain" />
+                                  ) : (
+                                    <Rocket className={`w-4 h-4 ${isSelected ? "text-amber-400" : "text-gray-500"}`} />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-[10px] font-bold text-white truncate flex items-center gap-1">
+                                    <span className="truncate">{launch.name}</span>
+                                    {isFuture && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" />}
+                                  </h4>
+                                  <p className="text-[8px] text-gray-400 font-mono mt-0.5 truncate">
+                                    {launch.rocketName} • {new Date(launch.date_utc).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[10px] text-gray-500 text-center py-4">No upcoming telemetry loaded</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Recent Past Launches Subsection */}
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider font-mono">Recent Missions Log</h3>
+                      <div className="space-y-2">
+                        {data.recentLaunches.map((launch) => (
+                          <div
+                            key={launch.id}
+                            className="flex items-center gap-2.5 p-2 bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 rounded-xl transition-all"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-black/40 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                              {launch.patch ? (
+                                <img src={launch.patch} alt={launch.name} loading="lazy" className="max-w-full max-h-full object-contain" />
+                              ) : (
+                                <Rocket className="w-4 h-4 text-gray-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-[10px] font-bold text-white truncate">{launch.name}</h4>
+                              <p className="text-[8px] text-gray-400 font-mono mt-0.5">
+                                {launch.rocketName} • {new Date(launch.date_utc).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-1">
+                              {launch.success === true ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-[7px] font-mono font-bold">
+                                  <CheckCircle2 className="w-2 h-2" />
+                                  OK
+                                </span>
+                              ) : launch.success === false ? (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-full text-rose-400 text-[7px] font-mono font-bold">
+                                  <XCircle className="w-2 h-2" />
+                                  FAIL
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-500/10 border border-gray-500/20 rounded-full text-gray-400 text-[7px] font-mono font-bold">
+                                  <HelpCircle className="w-2 h-2" />
+                                  N/A
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>

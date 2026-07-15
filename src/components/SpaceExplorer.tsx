@@ -215,7 +215,7 @@ export default function SpaceExplorer({
       setApodData(data);
       addToHistory(data);
     } catch (err: any) {
-      console.error("APOD Fetch failed", err);
+      console.log("APOD Fetch failed (handled gracefully)", err);
 
       // Offline/Fallback Support
       // Try to load from requested date's cache

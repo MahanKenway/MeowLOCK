@@ -49,34 +49,61 @@ export function sanitizeAPODData(entry: any): APODData {
   };
 }
 
-export async function fetchAPODClient(date: string): Promise<APODData> {
+export async function fetchAPODClient(date: string, attempts = 0): Promise<APODData> {
   const cacheKey = `zen_space_cache_${date}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
       return sanitizeAPODData(JSON.parse(cached));
     } catch (e) {
-      console.warn("Error parsing cached APOD", e);
+      console.log("Error parsing cached APOD", e);
     }
   }
 
   const apiKey = getNasaApiKey();
   const url = `https://api.nasa.gov/planetary/apod?api_key=${apiKey}&date=${date}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`NASA API returned error: ${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      if (response.status === 404 && attempts < 3) {
+        // Parse date safely and subtract 1 day
+        const parts = date.split("-");
+        let currentDate = new Date();
+        if (parts.length === 3) {
+          currentDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+        }
+        currentDate.setUTCDate(currentDate.getUTCDate() - 1);
+        const prevDateStr = currentDate.toISOString().split("T")[0];
+        console.log(`NASA APOD returned 404 for ${date}. Trying previous day ${prevDateStr} (Attempt ${attempts + 1})...`);
+        return fetchAPODClient(prevDateStr, attempts + 1);
+      }
+      throw new Error(`NASA API returned error: ${response.status} ${response.statusText}`);
+    }
+
+    const rawData = await response.json();
+    const data = sanitizeAPODData(rawData);
+
+    // Cache results locally
+    localStorage.setItem(cacheKey, JSON.stringify(data));
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (date === todayStr) {
+      localStorage.setItem("zen_space_cache_latest", JSON.stringify(data));
+    }
+
+    return data;
+  } catch (err: any) {
+    if (attempts < 3) {
+      const parts = date.split("-");
+      let currentDate = new Date();
+      if (parts.length === 3) {
+        currentDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+      }
+      currentDate.setUTCDate(currentDate.getUTCDate() - 1);
+      const prevDateStr = currentDate.toISOString().split("T")[0];
+      console.log(`NASA APOD fetch failed for ${date}. Trying previous day ${prevDateStr} (Attempt ${attempts + 1})...`);
+      return fetchAPODClient(prevDateStr, attempts + 1);
+    }
+    throw err;
   }
-
-  const rawData = await response.json();
-  const data = sanitizeAPODData(rawData);
-
-  // Cache results locally
-  localStorage.setItem(cacheKey, JSON.stringify(data));
-  const todayStr = new Date().toISOString().split("T")[0];
-  if (date === todayStr) {
-    localStorage.setItem("zen_space_cache_latest", JSON.stringify(data));
-  }
-
-  return data;
 }
