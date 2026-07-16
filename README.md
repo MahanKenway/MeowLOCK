@@ -1,6 +1,7 @@
 <div align="center">
 
 # 🐱 MeowLOCK
+<img width="1918" height="925" alt="Image" src="https://github.com/user-attachments/assets/6c60bf6c-9957-40e4-9dc2-68d1d297aad2" />
 
 ### *A retro-futuristic focus workspace that makes productivity feel like an aesthetic experience.*
 
