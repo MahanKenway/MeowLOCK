@@ -131,6 +131,72 @@ const loadBgFromIndexedDB = (): Promise<{ url: string; type: "image" | "video" }
   });
 };
 
+// Synchronous migration of existing non-prefixed keys to the 'meowlock_' namespace
+(() => {
+  const keysToMigrate = [
+    "focus_profiles",
+    "focus_active_profile",
+    "focus_tasks",
+    "focus_active_task_id",
+    "calendar_events",
+    "focus_history",
+    "focus_notes",
+    "focus_daily_goal",
+    "focus_quote",
+    "focus_username",
+    "focus_clock_font",
+    "focus_clock_size",
+    "focus_custom_accent",
+    "focus_glass_opacity",
+    "focus_window_roundness",
+    "focus_show_seconds",
+    "focus_show_greeting",
+    "focus_show_date",
+    "focus_clock_color",
+    "zen_text_size",
+    "GEMINI_API_KEY",
+    "NASA_API_KEY",
+    "zen_space_explorer_open",
+    "zen_space_bg_url",
+    "zen_space_bg_type",
+    "zen_space_bg_title",
+    "zen_space_bg_explanation",
+    "zen_cat_companion_active",
+    "current_radio_station",
+    "radio_volume",
+    "radio_mood"
+  ];
+  try {
+    keysToMigrate.forEach(k => {
+      const oldVal = window.localStorage.getItem(k);
+      const newVal = window.localStorage.getItem(`meowlock_${k}`);
+      if (oldVal !== null && newVal === null) {
+        window.localStorage.setItem(`meowlock_${k}`, oldVal);
+      }
+    });
+  } catch (e) {
+    console.warn("Storage migration to meowlock_ namespace failed:", e);
+  }
+})();
+
+// Consistent namespacing wrapper for local storage
+const meowlockStorage = {
+  getItem: (key: string) => {
+    const prefixedKey = key.startsWith("meowlock_") ? key : `meowlock_${key}`;
+    return window.localStorage.getItem(prefixedKey);
+  },
+  setItem: (key: string, value: string) => {
+    const prefixedKey = key.startsWith("meowlock_") ? key : `meowlock_${key}`;
+    window.localStorage.setItem(prefixedKey, value);
+  },
+  removeItem: (key: string) => {
+    const prefixedKey = key.startsWith("meowlock_") ? key : `meowlock_${key}`;
+    window.localStorage.removeItem(prefixedKey);
+  }
+};
+
+const localStorage = meowlockStorage;
+
 import CentralClock from "./components/CentralClock";
 import TimerWidget from "./components/TimerWidget";
 import TodoListWidget from "./components/TodoListWidget";
@@ -376,7 +442,8 @@ const initialProfiles: WorkspaceProfile[] = [
       music: false,
       stats: false,
       mixer: false,
-      wellness: false
+      wellness: false,
+      news: false
     },
     timerSettings: {
       pomodoro: 25,
@@ -410,7 +477,8 @@ const initialProfiles: WorkspaceProfile[] = [
       music: false,
       stats: false,
       mixer: false,
-      wellness: false
+      wellness: false,
+      news: false
     },
     timerSettings: {
       pomodoro: 45,
@@ -444,7 +512,8 @@ const initialProfiles: WorkspaceProfile[] = [
       music: true,
       stats: false,
       mixer: false,
-      wellness: false
+      wellness: false,
+      news: false
     },
     timerSettings: {
       pomodoro: 15,
@@ -518,7 +587,7 @@ export default function App() {
     let loaded = saved ? JSON.parse(saved) : initialProfiles;
 
     // One-time migration to make sure we don't start with all widgets open on load/startup
-    const migratedKey = "meowlock_clean_v2";
+    const migratedKey = "meowlock_clean_v3";
     if (!localStorage.getItem(migratedKey)) {
       loaded = loaded.map((p: any) => ({
         ...p,
@@ -531,7 +600,8 @@ export default function App() {
           music: p.name === "Relax Mode",
           stats: false,
           mixer: false,
-          wellness: false
+          wellness: false,
+          news: false
         }
       }));
       localStorage.setItem("focus_profiles", JSON.stringify(loaded));
@@ -849,6 +919,7 @@ export default function App() {
     !!activeProfile?.widgets?.mixer || 
     !!activeProfile?.widgets?.stats || 
     !!activeProfile?.widgets?.wellness || 
+    !!activeProfile?.widgets?.news || 
     isStreakOpen || 
     isCalendarOpen || 
     isSpaceExplorerOpen || 
@@ -893,6 +964,7 @@ export default function App() {
         !!activeProfile?.widgets?.mixer || 
         !!activeProfile?.widgets?.stats || 
         !!activeProfile?.widgets?.wellness || 
+        !!activeProfile?.widgets?.news || 
         isCalendarOpen || 
         isSpaceExplorerOpen || 
         isRadioOpen || 
@@ -923,7 +995,8 @@ export default function App() {
     activeProfile?.widgets?.music,
     activeProfile?.widgets?.mixer,
     activeProfile?.widgets?.stats,
-    activeProfile?.widgets?.wellness
+    activeProfile?.widgets?.wellness,
+    activeProfile?.widgets?.news
   ]);
 
   const [currentRadioStation, setCurrentRadioStation] = useState<any | null>(() => {
@@ -2381,6 +2454,7 @@ export default function App() {
                 if (activeProfile.widgets.stats) toggleWidget("stats");
                 if (isStreakOpen) setIsStreakOpen(false);
                 if (activeProfile.widgets.wellness) toggleWidget("wellness");
+                if (activeProfile.widgets.news) toggleWidget("news");
               }}
               className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm cursor-pointer pointer-events-auto"
             />

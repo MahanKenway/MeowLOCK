@@ -109,31 +109,31 @@ interface SpaceXData {
 // Robust Fallback Data in case the API is offline
 const FALLBACK_SPACEX_DATA: SpaceXData = {
   nextLaunch: {
-    name: "Crew-10",
+    name: "Crew-12",
     rocket: "5e9d0d95eda69973a809d1ec",
     rocketName: "Falcon 9",
-    date_utc: "2026-09-18T14:30:00.000Z", // Static date
+    date_utc: "2026-08-28T14:30:00.000Z", // Scheduled for August 2026 (relative to current date July 2026)
     launchpad: "5e9e4502f509094188566f88",
     launchpadName: "KSC LC-39A",
-    details: "SpaceX's tenth operational Crew Dragon mission to the International Space Station, carrying four astronauts to continue vital scientific research.",
+    details: "SpaceX's twelfth operational Crew Dragon mission to the International Space Station, carrying a multinational crew of four astronauts to continue vital scientific research.",
     patch: "https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=120&q=80",
     webcast: "https://www.youtube.com/spacex",
-    wikipedia: "https://en.wikipedia.org/wiki/SpaceX_Crew-10",
-    id: "crew-10-fallback"
+    wikipedia: "https://en.wikipedia.org/wiki/SpaceX_Crew-12",
+    id: "crew-12-fallback"
   },
   upcomingLaunches: [
     {
-      name: "Crew-10",
+      name: "Crew-12",
       rocket: "5e9d0d95eda69973a809d1ec",
       rocketName: "Falcon 9",
-      date_utc: "2026-09-18T14:30:00.000Z",
+      date_utc: "2026-08-28T14:30:00.000Z",
       launchpad: "5e9e4502f509094188566f88",
       launchpadName: "KSC LC-39A",
-      details: "SpaceX's tenth operational Crew Dragon mission to the International Space Station, carrying four astronauts to continue vital scientific research.",
+      details: "SpaceX's twelfth operational Crew Dragon mission to the International Space Station, carrying a multinational crew of four astronauts to continue vital scientific research.",
       patch: "",
       webcast: "https://www.youtube.com/spacex",
-      wikipedia: "https://en.wikipedia.org/wiki/SpaceX_Crew-10",
-      id: "crew-10-fallback"
+      wikipedia: "https://en.wikipedia.org/wiki/SpaceX_Crew-12",
+      id: "crew-12-fallback"
     },
     {
       name: "Starlink Group 8-1",
@@ -323,6 +323,18 @@ export default function SpaceXDashboard() {
   // Countdown timer State
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchTriggered, setLaunchTriggered] = useState<boolean>(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.timestamp) {
+          return new Date(parsed.timestamp);
+        }
+      }
+    } catch (e) {}
+    return null;
+  });
 
   // Computed launch to preview/track
   const currentLaunch = data
@@ -347,6 +359,9 @@ export default function SpaceXDashboard() {
           setData(cachePayload);
           setIsLoading(false);
           setIsUsingFallback(false);
+          if (cacheTimestamp) {
+            setLastUpdated(new Date(cacheTimestamp));
+          }
         }
       } catch (e) {
         console.error("SpaceX Cache reading error:", e);
@@ -589,12 +604,14 @@ export default function SpaceXDashboard() {
       };
 
       // Store in localStorage cache
+      const nowMs = Date.now();
       localStorage.setItem(CACHE_KEY, JSON.stringify({
-        timestamp: Date.now(),
+        timestamp: nowMs,
         payload: combinedData
       }));
 
       setData(combinedData);
+      setLastUpdated(new Date(nowMs));
       setIsUsingFallback(false);
     } catch (err) {
       console.log("SpaceX API fetch failed, utilizing robust offline cache:", err);
@@ -602,8 +619,11 @@ export default function SpaceXDashboard() {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         try {
-          const { payload } = JSON.parse(cached);
+          const { payload, timestamp } = JSON.parse(cached);
           setData(payload);
+          if (timestamp) {
+            setLastUpdated(new Date(timestamp));
+          }
         } catch (e) {
           setData(FALLBACK_SPACEX_DATA);
         }
@@ -637,11 +657,12 @@ export default function SpaceXDashboard() {
     if (!currentLaunch?.date_utc) return;
 
     const updateCountdown = () => {
-      const launchTime = new Date(currentLaunch.date_utc).getTime();
+      const parsedTime = currentLaunch.date_utc ? new Date(currentLaunch.date_utc).getTime() : 0;
+      const launchTime = isNaN(parsedTime) ? 0 : parsedTime;
       const now = Date.now();
       const difference = launchTime - now;
 
-      if (difference <= 0) {
+      if (isNaN(difference) || difference <= 0) {
         setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         // If it reaches zero and hasn't triggered yet, play rocket launch animation
         if (!launchTriggered && difference > -120000) { // inside 2 mins after launch
@@ -927,9 +948,23 @@ export default function SpaceXDashboard() {
         </div>
       </div>
 
+      {/* TELEMETRY STATUS & LAST UPDATED INDICATOR */}
+      <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border border-white/5 rounded-xl text-[10px] font-mono text-gray-400">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${isUsingFallback ? "bg-amber-500 animate-pulse" : "bg-emerald-500 animate-pulse"}`} />
+          <span>Telemetry Source: {isUsingFallback ? "Offline Vault (Cache)" : "Active Real-Time Stream"}</span>
+        </div>
+        {lastUpdated && (
+          <span className="text-gray-500 flex items-center gap-1">
+            <span>Last Sync:</span>
+            <strong className="text-gray-400">{lastUpdated.toLocaleTimeString()}</strong>
+          </span>
+        )}
+      </div>
+
       {/* TELEMETRY SOURCE INDICATION */}
       {isUsingFallback && (
-        <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 text-purple-300 px-3 py-2 rounded-xl text-[10px]">
+        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-300 px-3 py-2 rounded-xl text-[10px]">
           <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
           <span>SpaceX Mission Control Offline: Showing cached orbital telemetry safely.</span>
         </div>

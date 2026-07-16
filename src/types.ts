@@ -72,6 +72,7 @@ export interface WidgetLayout {
   stats: boolean;
   mixer: boolean;
   wellness: boolean;
+  news?: boolean;
 }
 
 export interface WorkspaceProfile {

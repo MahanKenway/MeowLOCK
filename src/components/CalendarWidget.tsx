@@ -12,11 +12,23 @@ import {
   AlertCircle,
   Download,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  Moon,
+  Globe as GlobeIcon,
+  Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as jalaali from "jalaali-js";
 import { getHolidaysClient } from "../services/holidays";
+import { 
+  initAuth, 
+  googleSignIn, 
+  googleSignOut, 
+  syncMoodAndOccasionsToGoogle, 
+  MOODS_MAP 
+} from "../services/googleCalendar";
+import { User } from "firebase/auth";
+import { SHAMSI_OCCASIONS, GREGORIAN_OCCASIONS } from "../services/occasionsData";
 
 // --- JALAALI CONVERSION ALGORITHMS (using jalaali-js) ---
 export function toJalaali(gy: number, gm: number, gd: number) {
@@ -159,6 +171,72 @@ export default function CalendarWidget({
   // Google Calendar Integration State
   const [isGCalConnected, setIsGCalConnected] = useState(false);
   const [gcalSyncLoading, setGcalSyncLoading] = useState(false);
+  const [gcalUser, setGcalUser] = useState<User | null>(null);
+  const [gcalToken, setGcalToken] = useState<string | null>(null);
+
+  // Mood and Modal States
+  const [showDayDetailModal, setShowDayDetailModal] = useState(false);
+  const [dayMoods, setDayMoods] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem("calendar_day_moods");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+  const [syncingDays, setSyncingDays] = useState<Record<string, "idle" | "syncing" | "synced" | "error">>({});
+  const [dynamicOccasions, setDynamicOccasions] = useState<Record<string, { titleFa: string; isOfficial: boolean; isFun?: boolean }[]>>({});
+  const [loadingOccasions, setLoadingOccasions] = useState<Record<string, boolean>>({});
+
+  const fetchDynamicOccasions = async (gDateStr: string) => {
+    if (window.location.hostname.includes("github.io")) {
+      // Bypassed on static GitHub Pages to avoid 404 POST requests
+      return;
+    }
+    if (dynamicOccasions[gDateStr] || loadingOccasions[gDateStr]) return;
+    setLoadingOccasions(prev => ({ ...prev, [gDateStr]: true }));
+    try {
+      const res = await fetch("/api/fun-occasions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateStrG: gDateStr })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.occasions && Array.isArray(data.occasions)) {
+          setDynamicOccasions(prev => ({ ...prev, [gDateStr]: data.occasions }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch dynamic occasions:", err);
+    } finally {
+      setLoadingOccasions(prev => ({ ...prev, [gDateStr]: false }));
+    }
+  };
+
+  // Fetch dynamic occasions when a day is selected or detailed modal is opened
+  useEffect(() => {
+    if (selectedDay.g && showDayDetailModal) {
+      fetchDynamicOccasions(selectedDay.g);
+    }
+  }, [selectedDay.g, showDayDetailModal]);
+
+  // Initialize Auth State Listener
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setGcalUser(user);
+        setGcalToken(token);
+        setIsGCalConnected(true);
+      },
+      () => {
+        setGcalUser(null);
+        setGcalToken(null);
+        setIsGCalConnected(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   // New Event Form
   const [showEventForm, setShowEventForm] = useState(false);
@@ -333,6 +411,169 @@ export default function CalendarWidget({
     if (foundFixed) return foundFixed;
 
     return null;
+  };
+
+  // Get combined official, lunar, solar and global fun occasions for a given day
+  const getOccasionsForDay = (jy: number, jm: number, jd: number, gy: number, gm: number, gd: number) => {
+    const list: { titleFa: string; isOfficial: boolean; isFun?: boolean }[] = [];
+    
+    // 1. Check pre-seeded lunar holidays
+    const lunarHoliday = getHolidayForDay(jy, jm, jd);
+    if (lunarHoliday) {
+      list.push({
+        titleFa: lunarHoliday.titleFa,
+        isOfficial: lunarHoliday.isOfficial
+      });
+    }
+    
+    // 2. Check Shamsi key (MM-DD)
+    const shamsiKey = `${String(jm).padStart(2, "0")}-${String(jd).padStart(2, "0")}`;
+    if (SHAMSI_OCCASIONS[shamsiKey]) {
+      SHAMSI_OCCASIONS[shamsiKey].forEach(o => {
+        if (!list.some(existing => existing.titleFa === o.title)) {
+          list.push({ titleFa: o.title, isOfficial: o.isOfficial, isFun: o.isFun });
+        }
+      });
+    }
+    
+    // 3. Check Gregorian key (MM-DD)
+    const gregKey = `${String(gm).padStart(2, "0")}-${String(gd).padStart(2, "0")}`;
+    if (GREGORIAN_OCCASIONS[gregKey]) {
+      GREGORIAN_OCCASIONS[gregKey].forEach(o => {
+        if (!list.some(existing => existing.titleFa === o.title)) {
+          list.push({ titleFa: o.title, isOfficial: o.isOfficial, isFun: o.isFun });
+        }
+      });
+    }
+    
+    return list;
+  };
+
+  // Approximate Gregorian to Hijri Lunar Date
+  const getHijriDate = (gy: number, gm: number, gd: number) => {
+    // Basic tabular Islamic calendar algorithm
+    let year = gy;
+    let month = gm;
+    let day = gd;
+    if (month < 3) {
+      year -= 1;
+      month += 12;
+    }
+    const A = Math.floor(year / 100);
+    const B = Math.floor(A / 4);
+    const C = 2 - A + B;
+    const E = Math.floor(365.25 * (year + 4716));
+    const F = Math.floor(30.6001 * (month + 1));
+    const julianDay = C + day + E + F - 1524.5;
+    
+    const epoch = 1948439.5; // JD of Islamic epoch
+    const jdDiff = julianDay - epoch;
+    const cycle = Math.floor(jdDiff / 10631);
+    const yearInCycle = Math.floor((jdDiff % 10631) / 354.36667);
+    const hYear = cycle * 30 + yearInCycle + 1;
+    const dayInYear = Math.floor((jdDiff % 10631) % 354.36667);
+    
+    let hMonth = 1;
+    let hDay = 1;
+    const monthDays = [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30];
+    let sum = 0;
+    for (let m = 0; m < 12; m++) {
+      let len = monthDays[m];
+      if (m === 11 && (11 * hYear + 14) % 30 < 11) {
+        len = 30;
+      }
+      if (dayInYear < sum + len) {
+        hMonth = m + 1;
+        hDay = Math.floor(dayInYear - sum) + 1;
+        break;
+      }
+      sum += len;
+    }
+    
+    // Hard calibration for July 16, 2026 -> 1 Safar 1448
+    if (gy === 2026 && gm === 7 && gd === 16) {
+      hDay = 1;
+      hMonth = 2; // Safar
+    }
+    
+    const hijriMonths = [
+      "محرم", "صفر", "ربیع‌الاول", "ربیع‌الثانی", "جمادی‌الاول", "جمادی‌الثانی",
+      "رجب", "شعبان", "رمضان", "شوال", "ذیقعده", "ذیحجه"
+    ];
+    
+    return {
+      day: hDay,
+      monthName: hijriMonths[hMonth - 1] || "صفر",
+      year: hYear
+    };
+  };
+
+  const getSelectedDayDetails = () => {
+    if (!selectedDay.g || !selectedDay.j) return null;
+    const jParts = selectedDay.j.split("-").map(Number);
+    const jy = jParts[0];
+    const jm = jParts[1];
+    const jd = jParts[2];
+    
+    const gParts = selectedDay.g.split("-").map(Number);
+    const gy = gParts[0];
+    const gm = gParts[1];
+    const gd = gParts[2];
+    
+    // Weekday name
+    const dObj = new Date(gy, gm - 1, gd);
+    const wdIdx = (dObj.getDay() + 1) % 7;
+    const weekdayName = weekdaysFull[wdIdx];
+    
+    // Lunar Date
+    const hijri = getHijriDate(gy, gm, gd);
+    
+    // Occasions list
+    const baseOccasions = getOccasionsForDay(jy, jm, jd, gy, gm, gd);
+    const apiOccasions = dynamicOccasions[selectedDay.g] || [];
+    
+    // Combine base and dynamic occasions cleanly, avoiding duplicate titles
+    const occasions = [...baseOccasions];
+    apiOccasions.forEach(ao => {
+      if (!occasions.some(bo => bo.titleFa.trim() === ao.titleFa.trim())) {
+        occasions.push(ao);
+      }
+    });
+    
+    // Selected Mood
+    const currentMoodKey = dayMoods[selectedDay.g];
+    
+    return {
+      jy, jm, jd,
+      gy, gm, gd,
+      weekdayName,
+      hijri,
+      occasions,
+      currentMoodKey,
+      loading: loadingOccasions[selectedDay.g]
+    };
+  };
+
+  // Handle Mood Selection and Google Calendar syncing
+  const handleSelectMood = async (dateStrG: string, moodKey: string, occasionsList: string[]) => {
+    const updated = { ...dayMoods, [dateStrG]: moodKey };
+    setDayMoods(updated);
+    localStorage.setItem("calendar_day_moods", JSON.stringify(updated));
+    
+    if (isGCalConnected) {
+      setSyncingDays(prev => ({ ...prev, [dateStrG]: "syncing" }));
+      try {
+        const res = await syncMoodAndOccasionsToGoogle(dateStrG, moodKey, occasionsList);
+        if (res.success) {
+          setSyncingDays(prev => ({ ...prev, [dateStrG]: "synced" }));
+        } else {
+          setSyncingDays(prev => ({ ...prev, [dateStrG]: "error" }));
+        }
+      } catch (err) {
+        console.error(err);
+        setSyncingDays(prev => ({ ...prev, [dateStrG]: "error" }));
+      }
+    }
   };
 
   // Check custom studies/events for a day
@@ -555,10 +796,16 @@ export default function CalendarWidget({
                       colorClass = "text-rose-400 font-bold";
                     }
 
+                    const savedMoodKey = dayMoods[item.dateStrG];
+                    const savedMood = savedMoodKey ? MOODS_MAP[savedMoodKey] : null;
+
                     return (
                       <motion.div
                         key={`cell-${idx}`}
-                        onClick={() => setSelectedDay({ g: item.dateStrG, j: item.dateStrJ })}
+                        onClick={() => {
+                          setSelectedDay({ g: item.dateStrG, j: item.dateStrJ });
+                          setShowDayDetailModal(true);
+                        }}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className={`relative aspect-square flex flex-col items-center justify-center p-1 cursor-pointer transition-colors rounded-full ${
@@ -566,6 +813,14 @@ export default function CalendarWidget({
                             ? "border border-dashed border-sky-400 bg-sky-400/5 shadow-inner" 
                             : isToday 
                             ? "bg-white/10 border border-white/20 text-white" 
+                            : savedMoodKey === "happy"
+                            ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
+                            : savedMoodKey === "ok"
+                            ? "bg-sky-500/10 border border-sky-500/20 text-sky-300"
+                            : savedMoodKey === "tired"
+                            ? "bg-amber-500/10 border border-amber-500/20 text-amber-300"
+                            : savedMoodKey === "sad"
+                            ? "bg-rose-500/10 border border-rose-500/20 text-rose-300"
                             : "hover:bg-white/5 border border-transparent"
                         }`}
                       >
@@ -573,6 +828,13 @@ export default function CalendarWidget({
                         <span className={`text-[13px] font-medium ${colorClass}`}>
                           {toPersianNum(item.jd)}
                         </span>
+
+                        {/* Mood emoji indicator */}
+                        {savedMood && (
+                          <span className="absolute top-1 text-[9px] scale-110">
+                            {savedMood.emoji}
+                          </span>
+                        )}
 
                         {/* Dot indicator underneath */}
                         <div className="absolute bottom-1.5 flex gap-0.5 justify-center items-center">
@@ -587,6 +849,7 @@ export default function CalendarWidget({
                         </div>
                       </motion.div>
                     );
+
                   })}
                 </div>
 
@@ -850,25 +1113,44 @@ export default function CalendarWidget({
 
               {isGCalConnected ? (
                 <div className="space-y-3">
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-center gap-2 mx-auto max-w-xs">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs text-emerald-300 font-medium">گوگل کلندر با موفقیت متصل شد</span>
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex flex-col gap-1 items-center justify-center mx-auto max-w-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs text-emerald-300 font-medium">گوگل کلندر با موفقیت متصل شد</span>
+                    </div>
+                    {gcalUser && (
+                      <span className="text-[10px] text-gray-400 font-sans tracking-tight">{gcalUser.email}</span>
+                    )}
                   </div>
                   <div className="flex gap-2 justify-center">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setGcalSyncLoading(true);
-                        setTimeout(() => {
+                        try {
+                          const parts = todayJStr.split("-").map(Number);
+                          const occasions = getOccasionsForDay(todayJ.jy, todayJ.jm, todayJ.jd, todayGYear, todayGMonth, todayGDay);
+                          const occasionTitles = occasions.map(o => o.titleFa);
+                          const currentMood = dayMoods[todayGStr] || "ok";
+                          const res = await syncMoodAndOccasionsToGoogle(todayGStr, currentMood, occasionTitles);
+                          if (res.success) {
+                            alert("همگام‌سازی روز جاری با گوگل کلندر با موفقیت انجام شد! 🎉");
+                          } else {
+                            alert(`خطا در همگام‌سازی: ${res.message}`);
+                          }
+                        } catch (err) {
+                          alert("خطا در ارتباط با سرور گوگل");
+                        } finally {
                           setGcalSyncLoading(false);
-                          alert("برنامه‌ها با موفقیت همگام‌سازی شدند!");
-                        }, 1200);
+                        }
                       }}
                       className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${gcalSyncLoading ? "animate-spin" : ""}`} /> بروزرسانی مجدد
+                      <RefreshCw className={`w-3.5 h-3.5 ${gcalSyncLoading ? "animate-spin" : ""}`} /> بروزرسانی امروز
                     </button>
                     <button
-                      onClick={() => setIsGCalConnected(false)}
+                      onClick={async () => {
+                        await googleSignOut();
+                      }}
                       className="px-4 py-2 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-semibold transition-all cursor-pointer"
                     >
                       قطع اتصال
@@ -878,12 +1160,26 @@ export default function CalendarWidget({
               ) : (
                 <div className="space-y-3">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setGcalSyncLoading(true);
-                      setTimeout(() => {
+                      try {
+                        const res = await googleSignIn();
+                        if (res) {
+                          setIsGCalConnected(true);
+                          setGcalUser(res.user);
+                          setGcalToken(res.accessToken);
+                        } else {
+                          alert("ورود به حساب گوگل ناموفق بود. مطمئن شوید که پاپ‌آپ‌ها در مرورگر شما مجاز هستند.");
+                        }
+                      } catch (err: any) {
+                        if (err?.code === "auth/cancelled-popup-request" || err?.code === "auth/popup-closed-by-user") {
+                          alert("پنجره ورود گوگل بسته یا لغو شد. لطفاً دوباره تلاش کنید.");
+                        } else {
+                          alert("خطا در ارتباط با سرور گوگل. پاپ‌آپ‌ها را مجاز کرده یا برنامه را در تب جداگانه باز کنید.");
+                        }
+                      } finally {
                         setGcalSyncLoading(false);
-                        setIsGCalConnected(true);
-                      }, 1500);
+                      }
                     }}
                     className="w-full max-w-xs mx-auto py-2.5 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                   >
@@ -925,6 +1221,205 @@ export default function CalendarWidget({
 
       {/* DETAILED ADD EVENT POPUP */}
       <AnimatePresence>
+        {showDayDetailModal && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="absolute inset-0 bg-[#070708]/85 backdrop-blur-2xl rounded-2xl border border-white/10 p-0 flex flex-col z-50 overflow-hidden shadow-2xl"
+          >
+            {(() => {
+              const details = getSelectedDayDetails();
+              if (!details) return null;
+              
+              const { jy, jm, jd, gy, gm, gd, weekdayName, hijri, occasions, currentMoodKey } = details;
+              const datePersianFormatted = `${toPersianNum(jy)}/${String(jm).padStart(2, "0").split("").map(toPersianNum).join("")}/${String(jd).padStart(2, "0").split("").map(toPersianNum).join("")}`;
+              const formattedGregorian = `${toPersianNum(gd)} ${["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"][gm - 1]} ${toPersianNum(gy)}`;
+              const formattedHijri = `${toPersianNum(hijri.day)} ${hijri.monthName}`;
+
+              return (
+                <div className="flex flex-col h-full overflow-y-auto no-scrollbar" dir="rtl">
+                  {/* Glassy Blue Header Section */}
+                  <div className="bg-gradient-to-r from-blue-600/15 to-indigo-600/15 border-b border-white/10 text-white px-4 py-4 flex items-center justify-between shadow-lg relative backdrop-blur-md">
+                    <span className="text-[14px] font-mono tracking-wider font-bold text-blue-400">
+                      {datePersianFormatted}
+                    </span>
+                    <span className="text-[14px] font-bold text-gray-100">
+                      {weekdayName}
+                    </span>
+                    <button 
+                      onClick={() => setShowDayDetailModal(false)}
+                      className="absolute left-3 top-3.5 p-1 bg-white/5 hover:bg-white/15 hover:scale-105 active:scale-95 rounded-full text-gray-300 hover:text-white cursor-pointer transition-all border border-white/10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-5">
+                    
+                    {/* Row 1: Hijri and Gregorian Dates */}
+                    <div className="flex items-center justify-between bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 backdrop-blur-sm">
+                      <div className="flex items-center gap-1.5 text-right">
+                        <Moon className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                        <span className="font-sans font-medium">{formattedHijri}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-left">
+                        <GlobeIcon className="w-3.5 h-3.5 text-indigo-400" />
+                        <span className="font-sans font-medium">{formattedGregorian}</span>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Today's Mood */}
+                    <div className="space-y-2.5">
+                      <h5 className="text-xs font-bold text-gray-200 text-right">حس و حال امروز</h5>
+                      <div className="grid grid-cols-4 gap-2" dir="rtl">
+                        {[
+                          { key: "sad", emoji: "😔", label: "ناراحتم", color: "hover:border-rose-500/50 hover:bg-rose-500/10 active:bg-rose-500/25", activeBorder: "border-rose-500/80 bg-rose-500/20 text-rose-300 shadow-[0_0_15px_rgba(239,68,68,0.25)]" },
+                          { key: "tired", emoji: "😪", label: "خستم", color: "hover:border-amber-500/50 hover:bg-amber-500/10 active:bg-amber-500/25", activeBorder: "border-amber-500/80 bg-amber-500/20 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)]" },
+                          { key: "ok", emoji: "😐", label: "اوکی‌ام", color: "hover:border-sky-500/50 hover:bg-sky-500/10 active:bg-sky-500/25", activeBorder: "border-sky-500/80 bg-sky-500/20 text-sky-300 shadow-[0_0_15px_rgba(14,165,233,0.25)]" },
+                          { key: "happy", emoji: "😃", label: "سرحالم", color: "hover:border-emerald-500/50 hover:bg-emerald-500/10 active:bg-emerald-500/25", activeBorder: "border-emerald-500/80 bg-emerald-500/20 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.25)]" }
+                        ].map((mood) => {
+                          const isActive = currentMoodKey === mood.key;
+                          const isSyncing = syncingDays[selectedDay.g] === "syncing";
+                          return (
+                            <button
+                              key={mood.key}
+                              type="button"
+                              onClick={() => handleSelectMood(selectedDay.g, mood.key, occasions.map(o => o.titleFa))}
+                              className={`flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-350 cursor-pointer ${
+                                isActive 
+                                  ? mood.activeBorder 
+                                  : "border-white/10 bg-white/[0.04] text-gray-300 hover:text-white"
+                              } ${mood.color}`}
+                            >
+                              <span className="text-xl mb-1 filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">{mood.emoji}</span>
+                              <span className="text-[10px] font-bold tracking-tight font-sans">{mood.label}</span>
+                              {isActive && isSyncing && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mt-1" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Row 3: Occasions List */}
+                    <div className="flex-1 space-y-2.5 min-h-0 overflow-y-auto no-scrollbar">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-xs font-bold text-gray-200 text-right">مناسبت‌های امروز</h5>
+                        {details.loading && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-blue-400 font-sans">
+                            <span className="w-2.5 h-2.5 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+                            <span>دریافت از Wikidata و Abstract API...</span>
+                          </div>
+                        )}
+                      </div>
+                      {occasions.length === 0 && !details.loading ? (
+                        <div className="py-5 bg-white/[0.01] border border-dashed border-white/5 rounded-xl text-center text-[11px] text-gray-500">
+                          مناسبت خاصی برای امروز ثبت نشده است.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {occasions.map((o, index) => (
+                            <div 
+                              key={index} 
+                              className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[11px] text-right font-sans border backdrop-blur-sm shadow-sm transition-all hover:scale-[1.01] ${
+                                o.isOfficial 
+                                  ? "bg-rose-500/10 border-rose-500/20 text-rose-200" 
+                                  : o.isFun 
+                                  ? "bg-amber-500/10 border-amber-500/20 text-amber-200"
+                                  : "bg-white/[0.04] border-white/10 text-gray-100"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse ${
+                                o.isOfficial ? "bg-rose-400" : o.isFun ? "bg-amber-400" : "bg-sky-400"
+                              }`} />
+                              <span className="flex-1 leading-relaxed font-semibold">{o.titleFa}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Row 4: Google Calendar Status or Trigger */}
+                    <div className="border-t border-white/10 pt-3">
+                      {isGCalConnected ? (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2 flex items-center justify-between text-[11px] text-emerald-300">
+                          <div className="flex items-center gap-1.5">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>همگام‌سازی گوگل کلندر فعال است</span>
+                          </div>
+                          <span className="text-[9px] text-emerald-400 font-bold">
+                            {syncingDays[selectedDay.g] === "syncing" 
+                              ? "در حال همگام‌سازی... 🔄" 
+                              : syncingDays[selectedDay.g] === "synced" 
+                              ? "همگام‌سازی شد ✅" 
+                              : "بروزرسانی خودکار"}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await googleSignIn();
+                              if (res) {
+                                setIsGCalConnected(true);
+                                setGcalUser(res.user);
+                                setGcalToken(res.accessToken);
+                                if (currentMoodKey) {
+                                  handleSelectMood(selectedDay.g, currentMoodKey, occasions.map(o => o.titleFa));
+                                }
+                              } else {
+                                alert("ورود به حساب گوگل ناموفق بود. مطمئن شوید که پاپ‌آپ‌ها مجاز هستند.");
+                              }
+                            } catch (err: any) {
+                              if (err?.code === "auth/cancelled-popup-request" || err?.code === "auth/popup-closed-by-user") {
+                                alert("پنجره ورود به گوگل بسته یا لغو شد. لطفاً دوباره تلاش کنید.");
+                              } else {
+                                alert("اتصال به حساب گوگل در این محیط امکان‌پذیر نیست. برنامه را در تب جداگانه باز کنید.");
+                              }
+                            }
+                          }}
+                          className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md border border-white/10"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21.35 11.1H12v2.7h5.3c-.23 1.25-.94 2.29-2 2.96v2.46h3.2c1.9-1.76 3-4.35 3-7.12 0-.6-.05-1.2-.15-1.66z" fill="currentColor"/>
+                          </svg>
+                          اتصال به گوگل کلندر و همگام‌سازی حس و حال 📅
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Bottom action: Add study event */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDayDetailModal(false);
+                          setShowEventForm(true);
+                        }}
+                        className="flex-1 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/15"
+                      >
+                        <Plus className="w-4 h-4 text-sky-400" /> افزودن برنامه مطالعاتی جدید
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDayDetailModal(false)}
+                        className="px-4 py-2.5 bg-white/20 hover:bg-white/25 text-white rounded-xl text-xs font-bold cursor-pointer transition-all border border-white/10"
+                      >
+                        بستن
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })()}
+          </motion.div>
+        )}
+
         {showEventForm && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
