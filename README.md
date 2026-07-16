@@ -6,7 +6,6 @@
 
 <br/>
 
-![AI Powered](https://img.shields.io/badge/AI-Gemini_Pro-9b5de5?style=for-the-badge&logo=google-gemini&logoColor=white&labelColor=1a1a2e)
 ![React 19](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=white&labelColor=20232a)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=for-the-badge&logo=typescript&logoColor=white&labelColor=1e1e2e)
 ![Web Audio](https://img.shields.io/badge/Audio-Synthesized-ff6b6b?style=for-the-badge&labelColor=1a1a2e)
@@ -128,20 +127,6 @@ git clone https://github.com/MahanKenway/MeowLOCK.git
 cd MeowLOCK
 npm install
 ```
-
-Create a `.env` file:
-```env
-GEMINI_API_KEY=your_key_here
-```
-
-Run:
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000` — your retro-futuristic workspace awaits.
-
-<br/>
 
 ## 🛡️ Privacy
 
