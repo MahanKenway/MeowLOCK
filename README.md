@@ -1,113 +1,191 @@
-# 🌌 Flocus — The Ultimate Retro-Futuristic Cognitive Workspace
+<div align="center">
 
-[![Framework: React 19](https://img.shields.io/badge/Framework-React%2019-0052cc?style=flat-squared&logo=react)](https://react.dev)
-[![Styles: Tailwind CSS 4.0](https://img.shields.io/badge/Styles-Tailwind%20CSS%204.0-38bdf8?style=flat-squared&logo=tailwind-css)](https://tailwindcss.com)
-[![Engine: Web Audio API](https://img.shields.io/badge/Audio-Web%20Audio%20API-ff6b6b?style=flat-squared&logo=soundcharts)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
-[![AI Power: Gemini Pro/Flash](https://img.shields.io/badge/AI-Gemini%20Pro%20%26%20Flash-9b5de5?style=flat-squared&logo=google-gemini)](https://deepmind.google/technologies/gemini/)
+# 🐱 MeowLOCK
 
-> **Flocus** is a highly premium, aesthetic, and distraction-free cognitive desktop designed for deep workers, programmers, and creators. It blends an elegant retro-futuristic operating system aesthetic with organic audio synthesis, generative AI tools, and structured task management into a singular, highly immersive flow-state environment.
+### *A retro-futuristic focus workspace that makes productivity feel like an aesthetic experience.*
 
----
+<br/>
 
-## 🎨 Architectural Masterpieces & Core Subsystems
+![AI Powered](https://img.shields.io/badge/AI-Gemini_Pro-9b5de5?style=for-the-badge&logo=google-gemini&logoColor=white&labelColor=1a1a2e)
+![React 19](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=white&labelColor=20232a)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=for-the-badge&logo=typescript&logoColor=white&labelColor=1e1e2e)
+![Web Audio](https://img.shields.io/badge/Audio-Synthesized-ff6b6b?style=for-the-badge&labelColor=1a1a2e)
+![Zero Tracking](https://img.shields.io/badge/Privacy-Zero_Tracking-00c853?style=for-the-badge&labelColor=1a1a2e)
 
-### 1. Retro OS Interface & Glassmorphism
-*   **Fully Windowed Desktop:** Experience custom glassmorphic windows (e.g., `Tasks.exe`, `Notepad.exe`, `SoundMixer.exe`, `iPod_Classic.exe`, `Statistics.exe`) that are fully draggable with physical micro-animations.
-*   **Aesthetic Background Damping:** Adjust background visual blur and dark overlay depth on the fly to tune your environmental sensory input.
-*   **Dynamic Profiles:** Instantly hot-swap workspaces with pre-configured settings like *Study Mode*, *Coding Mode*, or *Relax Mode*, or construct and save your own layouts.
+<br/>
 
-### 2. Synthesized Organic Audio Mixer (0% Bandwidth)
-*   **Code-Generated Waveforms:** No heavy static sound assets or network requests! Flocus utilizes low-level `Web Audio API` oscillators and noise generators to construct organic soundscapes completely in-code:
-    *   🌧️ *Heavy Rolling Rainstorms*
-    *   🔥 *Crackling Log Fires*
-    *   ☕ *Dynamic Cafe Chatter*
-    *   🍃 *Forest Whispers*
-    *   🌫️ *Procedural White, Pink, and Brown Noise*
-*   **Zen Meditation Bowl Chimes:** Authentic harmonic chime sequences synthesized mathematically to represent traditional Tibetan bowls.
+**Pomodoro timer. Ambient soundscapes. AI study assistant. iPod music player. Virtual cat companion. News feed. Google Calendar sync.**
 
-### 3. Integrated iPod Classic & Nano Music Suite
-*   **Retro Simulation:** Switch between the complete full-scale `iPod Classic` (including a functional click-wheel scrolling simulator) or the minimal `iPod Nano` player interface.
-*   **Aesthetic Presets:** Preloaded with rich, high-fidelity lofi study tracks, ambient coding space synths, and classical piano, along with live Radio Paradise and SomaFM shoegaze streams.
-*   **Discover Live Archive Feed:** Search and stream millions of live concerts, bootlegs, and historic tapes directly from the *Internet Archive* and *Last.fm* API backends (fully updated to prioritize *My Chemical Romance* concert tapes out of the box).
+**All in one glassmorphic desktop that makes you *want* to focus.**
 
-### 4. Interactive Virtual Cat Companion (`CatCompanion.dat`)
-*   Meet your procedural companion cat who roams, plays, naps, and sits on your active workspace cards.
-*   Features physics-based dragging, contextual status responses, mood reactions, and click-to-pet feedback with dynamic text reactions.
-
-### 5. Gemini AI Cognitive Hub
-*   **Grounded Quotes & Cognitive Advice:** Search-grounded contextual search queries (e.g., *"How to beat procrastination in math"* or *"Best pomodoro schedules for programming"*). Backed by **Gemini 3.5 Flash** with Google Search Grounding to present authentic research citations.
-*   **AI Markdown Notes Assistant:** A premium workspace note taker with instant local persistence and an embedded high-thinking **Gemini 3.1 Pro** engine to summarize, expand, outline, structure, or generate interactive study flashcards directly from active text.
-*   **Generative Wallpapers:** Create breathtaking custom high-resolution canvas backdrops (1K, 2K, 4K quality options) by describing any visual mood (e.g., *"Cozy cyberpunk room, warm neon lights, rainy day anime pastel style"*) using **Gemini 3.1 Flash Image** generation.
+<br/>
 
 ---
 
-## 🛠️ The Premium Technology Stack
+</div>
+
+<br/>
+
+## 🌌 What is this?
+
+MeowLOCK (codename: **Flocus**) is a fully customizable cognitive workspace that combines:
+
+- A **retro OS desktop** with draggable glassmorphic windows
+- **Procedurally generated ambient sounds** (rain, fire, cafe, forest — zero bandwidth)
+- An **iPod Classic simulator** with real click-wheel navigation
+- A **Gemini AI assistant** for notes, flashcards, and study help
+- A **virtual cat** that roams your workspace and reacts to your clicks
+- **Generative AI wallpapers** — describe a mood, get a 4K backdrop
+- **News aggregator** and **Google Calendar** integration
+- **Weather widget** and **SpaceX launch tracker**
+
+It's what happens when you combine lofi hip hop radio with a Linux rice and an AI tutor.
+
+<br/>
+
+## ✨ Feature Map
 
 ```
-   ┌───────────────────────────────────────────────────────────────┐
-   │                       FLOCUS FRONTEND                         │
-   │      React 19  •  TypeScript  •  Tailwind CSS 4.0             │
-   └───────────────┬───────────────────────────────────────────────┘
-                   │
-                   ▼ (Express API Proxy / Static Assets)
-   ┌───────────────────────────────────────────────────────────────┐
-   │                        EXPRESS SERVER                         │
-   │               Vite Middleware  •  Node.js ESM                 │
-   └───────────────┬───────────────────────────────────────────────┘
-                   │
-                   ▼ (Server-Side Secure Gemini Handshake)
-   ┌───────────────────────────────────────────────────────────────┐
-   │                       GOOGLE GEMINI SDK                       │
-   │  gemini-3.1-pro-preview  •  gemini-3.5-flash  •  Imagen 3     │
-   └───────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                     MeowLOCK WORKSPACE                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  🖥️ RETRO OS INTERFACE                                              │
+│  ├── Glassmorphic draggable windows (Tasks.exe, Notepad.exe...)    │
+│  ├── Dynamic blur & overlay controls                                │
+│  ├── Hot-swappable profiles (Study / Coding / Relax)               │
+│  └── Custom layout builder                                          │
+│                                                                     │
+│  🎵 SYNTHESIZED AUDIO MIXER (0% bandwidth)                          │
+│  ├── 🌧️ Rainstorms (procedural noise synthesis)                     │
+│  ├── 🔥 Crackling fire (oscillator-based)                           │
+│  ├── ☕ Cafe chatter (generated, not sampled)                       │
+│  ├── 🍃 Forest whispers                                             │
+│  ├── 🌫️ White / Pink / Brown noise                                  │
+│  └── 🔔 Tibetan bowl chimes (harmonic synthesis)                    │
+│                                                                     │
+│  🎶 iPOD CLASSIC & NANO PLAYER                                      │
+│  ├── Functional click-wheel simulator                               │
+│  ├── Lofi / Ambient / Classical presets                             │
+│  ├── Live Radio Paradise & SomaFM streams                          │
+│  └── Internet Archive concert search + YouTube playback             │
+│                                                                     │
+│  🐱 VIRTUAL CAT COMPANION                                           │
+│  ├── Physics-based movement & dragging                              │
+│  ├── Mood reactions & contextual responses                          │
+│  ├── Sits on your active workspace cards                            │
+│  └── Click-to-pet with dynamic text feedback                        │
+│                                                                     │
+│  🧠 GEMINI AI HUB                                                   │
+│  ├── Search-grounded study advice (with citations)                  │
+│  ├── AI notes assistant (summarize, expand, flashcards)             │
+│  └── Generative wallpapers (describe mood → 4K image)              │
+│                                                                     │
+│  📰 NEWS & CALENDAR                                                 │
+│  ├── News aggregator with curated feeds                             │
+│  ├── Google Calendar sync                                           │
+│  ├── Persian/Jalaali calendar support                               │
+│  └── Occasions & holidays tracker                                   │
+│                                                                     │
+│  📊 ANALYTICS & TRACKING                                            │
+│  ├── Focus session statistics & streak tracking                     │
+│  ├── SVG trend charts (Recharts)                                    │
+│  ├── Pomodoro / Stopwatch / Custom timers                           │
+│  ├── Weather widget                                                 │
+│  └── SpaceX launch dashboard                                        │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-*   **Audio DSP:** Web Audio API (gain nodes, biquad filters, dynamics compressors, brownian/white noise buffer source synthesis).
-*   **Analytics Visualization:** SVG-rendered responsive trend charts powered by `Recharts`.
-*   **Physics & Animation Engine:** Staggered spring dynamics and inertia controls courtesy of `motion/react`.
+<br/>
 
----
+## 🎧 The Audio Engine
 
-## 🚀 Getting Started
+Most focus apps ship 50MB of audio files. MeowLOCK ships **zero**.
 
-### 1. Environment Configuration
-Create a secure `.env` file in the root folder (see `.env.example` as a template):
-```env
-GEMINI_API_KEY=your_google_gemini_api_key_here
+Every sound is synthesized in real-time using the Web Audio API — oscillators, noise buffers, biquad filters, and dynamics compressors. The result? Infinite, non-looping ambient soundscapes that never repeat and never buffer.
+
+```javascript
+// This is how rain sounds are made here:
+// Not: <audio src="rain.mp3">
+// But: BrownianNoise → BiquadFilter → DynamicsCompressor → GainNode → 🔊
 ```
 
-### 2. Dependency Installation
-Initialize the clean, modular local package dependencies:
+<br/>
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19 + TypeScript |
+| AI Engine | Google Gemini 3.1 Pro + Flash |
+| Image Gen | Gemini Flash Image / Imagen 3 |
+| Audio | Web Audio API (pure synthesis) |
+| Styling | Tailwind CSS 4 |
+| Animations | Motion (Framer Motion) |
+| Charts | Recharts |
+| Backend | Express.js (secure API proxy) |
+| Build | Vite + esbuild |
+| Calendar | Jalaali.js (Persian calendar support) |
+| Integrations | Google Calendar, YouTube, Spotify |
+
+<br/>
+
+## 🚀 Quick Start
+
 ```bash
+git clone https://github.com/MahanKenway/MeowLOCK.git
+cd MeowLOCK
 npm install
 ```
 
-### 3. Run the Local Development Environment
-Boot up the full-stack server running Vite's hot development server in-middleware:
+Create a `.env` file (see `.env.example`):
+```env
+GEMINI_API_KEY=your_key_here
+SPOTIFY_CLIENT_ID=optional
+SPOTIFY_CLIENT_SECRET=optional
+```
+
+Run:
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view your retro-futuristic digital terminal!
 
-### 4. Enterprise Production Compilation
-Compile the static webapp and bundle the Express server into a standalone, ultra-fast executing server payload:
-```bash
-npm run build
-```
-Launch the compiled Node bundle:
-```bash
-npm run start
-```
+Open `http://localhost:3000` — your retro-futuristic workspace awaits.
+
+<br/>
+
+## 🛡️ Privacy
+
+- All API calls proxied server-side — **no keys exposed to client**
+- Notes, tasks, and preferences stored in **localStorage only**
+- **Zero tracking. Zero analytics. Zero telemetry.**
+- Your focus data stays on your machine. Period.
+
+<br/>
+
+## 🎨 The Philosophy
+
+> Productivity tools shouldn't feel like spreadsheets. They should feel like *spaces* — places you want to inhabit while doing deep work.
+
+MeowLOCK is built on the belief that aesthetics and function are not opposites. That a virtual cat walking across your task list makes you *more* productive, not less. That the sound of rain should be synthesized, not streamed. That your workspace should look like it belongs in a cyberpunk anime, because why not.
+
+<br/>
+
+## 📜 License
+
+MIT — Focus freely.
 
 ---
 
-## 🛡️ Enterprise Security Architecture
-*   **Secure API Encapsulation:** All sensitive API calls to the Gemini endpoints are proxied server-side via `/api/gemini/*` endpoints. **No API keys are ever leaked or accessible inside client network tabs.**
-*   **Safe File I/O Sandbox:** User notes, task checklists, statistics, and theme preferences are bound securely to browser `localStorage` or cached in-sandbox, providing a rapid, seamless offline-first experience with zero tracking.
+<div align="center">
 
----
+**Built with 🐱 by [Mahan Tavakoli](https://github.com/MahanKenway)**
 
-<p align="center">
-  <i>"Simplicity is the ultimate sophistication. Focus is the ultimate weapon."</i><br>
-  <b>Flocus Space Technologies © 2026. All rights reserved.</b>
-</p>
+*Lock in. Focus up. Pet the cat.*
+
+<br/>
+
+[![Star this repo](https://img.shields.io/github/stars/MahanKenway/MeowLOCK?style=social)](https://github.com/MahanKenway/MeowLOCK/stargazers)
+
+</div>
