@@ -1050,7 +1050,7 @@ export default function LibraryWidget({
                   {books.map((book) => (
                     <div
                       key={book.id}
-                      className="p-4 rounded-xl bg-slate-800/40 border border-white/5 hover:border-white/15 hover:bg-slate-800/60 transition-all flex flex-col space-y-3 group"
+                      className="p-4 rounded-xl bg-slate-800/40 border border-white/5 hover:border-emerald-500/30 hover:bg-slate-800/70 transform transition-all duration-300 ease-out hover:-translate-y-1.5 hover:scale-[1.015] hover:shadow-xl hover:shadow-emerald-500/10 flex flex-col space-y-3 group"
                     >
                       <div className="flex space-x-4">
                         {/* Cover image wrapped in 3D perspective TiltedCard */}
@@ -2044,7 +2044,7 @@ export default function LibraryWidget({
                             handleReadBook(book);
                           }
                         }}
-                        className="w-full h-full p-4 rounded-xl bg-slate-800/40 border border-white/5 hover:border-emerald-500/25 hover:bg-slate-800/60 cursor-pointer transition-all flex space-x-3 group text-left"
+                        className="w-full h-full p-4 rounded-xl bg-slate-800/40 border border-white/5 hover:border-emerald-500/30 hover:bg-slate-800/70 cursor-pointer transform transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:shadow-xl hover:shadow-emerald-500/10 flex space-x-3 group text-left"
                       >
                         <BookOpen className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
                         <div className="min-w-0 flex-1">

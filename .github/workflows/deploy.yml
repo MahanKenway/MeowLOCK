@@ -40,17 +40,14 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm install --legacy-peer-deps
 
       - name: Build Production Assets
-        run: npm run build
+        run: |
+          npm run build
+          touch ./dist/.nojekyll
+          cp ./dist/index.html ./dist/404.html
         env:
-          # Prevent CI from failing on warnings if needed
           CI: false
 
       - name: Configure GitHub Pages Settings
