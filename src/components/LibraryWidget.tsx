@@ -101,10 +101,16 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, retries = 
     try {
       const response = await fetch(url, options);
       if (response.ok) return response;
+      if (response.status === 404 || response.status === 405) {
+        throw new Error(`A backend API server is required for live Z-Library searches/downloads (HTTP ${response.status}). Static hosts like GitHub Pages do not run Node.js backend routes.`);
+      }
       const errText = await response.text().catch(() => "");
       throw new Error(`Server status ${response.status}: ${errText || response.statusText || "Query failed"}`);
     } catch (err: any) {
       lastError = err;
+      if (err.message && err.message.includes("backend API server is required")) {
+        throw err; // Do not retry static host endpoint missing errors
+      }
       if (i < retries - 1) {
         console.warn(`Fetch to ${url} failed (attempt ${i + 1}/${retries}). Retrying in ${delayMs}ms...`, err);
         await new Promise(resolve => setTimeout(resolve, delayMs));
