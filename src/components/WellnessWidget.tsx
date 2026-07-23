@@ -12,6 +12,7 @@ import {
   Settings2
 } from "lucide-react";
 import { WellnessSettings } from "../types";
+import TiltedCard from "./TiltedCard";
 
 interface WellnessWidgetProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface WellnessWidgetProps {
   settings?: WellnessSettings;
   onSettingsChange: (settings: WellnessSettings) => void;
   isMobile?: boolean;
+  isMinimalMode?: boolean;
 }
 
 const DEFAULT_SETTINGS: WellnessSettings = {
@@ -35,7 +37,8 @@ export default function WellnessWidget({
   onClose,
   settings = DEFAULT_SETTINGS,
   onSettingsChange,
-  isMobile = false
+  isMobile = false,
+  isMinimalMode = false
 }: WellnessWidgetProps) {
   // Active alerts
   const [activeAlerts, setActiveAlerts] = useState<{ id: string; type: "break" | "eye" | "water"; message: string }[]>([]);
@@ -187,7 +190,7 @@ export default function WellnessWidget({
             drag={isMobile ? false : true}
             dragMomentum={true}
             dragElastic={0.1}
-            className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-50 bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : "pointer-events-auto absolute top-20 right-20 bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col retro-window p-5 z-40"}
+            className={isMobile ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-[101] bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col retro-window" : `pointer-events-auto absolute top-20 right-20 bg-neutral-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col retro-window p-5 ${isMinimalMode ? "z-[52]" : "z-40"}`}
             style={{
               width: isMobile ? 'auto' : '380px',
               borderRadius: '16px'
@@ -196,23 +199,36 @@ export default function WellnessWidget({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-rose-500/20 rounded-lg">
-                  <HeartPulse className="w-5 h-5 text-rose-400" />
+            <TiltedCard
+              imageSrc=""
+              containerHeight="auto"
+              containerWidth="100%"
+              imageHeight="auto"
+              imageWidth="100%"
+              scaleOnHover={1.015}
+              rotateAmplitude={4}
+              showTooltip={false}
+              noFallbackBg={true}
+              relativeChildren={true}
+            >
+              <div className="w-full h-full flex flex-col p-5 relative">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-rose-500/20 rounded-lg">
+                      <HeartPulse className="w-5 h-5 text-rose-400" />
+                    </div>
+                    <h2 className="text-white font-semibold tracking-tight font-sans">Wellness & Habits</h2>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className={isMobile ? "p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer" : "p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer"}
+                  >
+                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                  </button>
                 </div>
-                <h2 className="text-white font-semibold tracking-tight font-sans">Wellness & Habits</h2>
-              </div>
-              <button
-                onClick={onClose}
-                onPointerDown={(e) => e.stopPropagation()}
-                className={isMobile ? "p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer" : "p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer"}
-              >
-                <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-              </button>
-            </div>
 
-            <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 overflow-y-auto no-scrollbar max-h-[70vh]">
               {/* Break Reminder */}
               <div className={`p-4 rounded-xl border transition-all ${settings.breakReminderEnabled ? 'bg-orange-500/10 border-orange-500/20' : 'bg-white/5 border-white/5'}`}>
                 <div className="flex items-center justify-between mb-3">
@@ -301,7 +317,9 @@ export default function WellnessWidget({
                 </div>
               </div>
 
-            </div>
+              </div>
+              </div>
+            </TiltedCard>
           </motion.div>
         )}
       </AnimatePresence>

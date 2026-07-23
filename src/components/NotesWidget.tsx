@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import MDEditor from "@uiw/react-md-editor";
 import { motion, AnimatePresence } from "motion/react";
+import hayleyWilliamsArt from "../assets/images/hayley_williams_pixel_art_1784338631797.jpg";
+import gerardWayArt from "../assets/images/gerard_way_pixel_art_1784338647925.jpg";
 
 interface DrawPoint {
   x: number;
@@ -65,6 +67,8 @@ interface NotePage {
 }
 
 const PHOTO_PRESETS = [
+  { name: "🎸 Hayley (Paramore)", url: hayleyWilliamsArt },
+  { name: "🎤 Gerard (MCR)", url: gerardWayArt },
   { name: "📜 Old Desk", url: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=200&auto=format&fit=crop" },
   { name: "☕ Cozy Cafe", url: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?q=80&w=200&auto=format&fit=crop" },
   { name: "🌌 Night Sky", url: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=200&auto=format&fit=crop" },
@@ -207,15 +211,8 @@ export default function NotesWidget({
     return [
       {
         id: "default-text",
-        title: "📝 Study Goals & Notes",
+        title: "📝 Notes",
         type: "text",
-        content: noteContent || `# 🎓 Welcome to Notepad!\n\nUse this space to write lecture summaries, build plans, or organize study chapters. \n\n* **Markdown support** is fully enabled!\n* Click the **Pin icon** above to turn this into a minimal sticky note.\n* Create a **Whiteboard canvas** to sketch diagrams!`,
-        drawPaths: []
-      },
-      {
-        id: "default-board",
-        title: "🎨 Sketchboard",
-        type: "whiteboard",
         content: "",
         drawPaths: []
       }
@@ -246,30 +243,12 @@ export default function NotesWidget({
   useEffect(() => {
     localStorage.setItem("flocus_notepad_pages", JSON.stringify(pages));
     
-    if (isInternalChangeRef.current) {
-      isInternalChangeRef.current = false;
-      return;
-    }
-
     // Maintain outer compatibility
     const mainTextPage = pages.find((p) => p.type === "text");
     if (mainTextPage && mainTextPage.content !== noteContent) {
       onChange(mainTextPage.content);
     }
   }, [pages]);
-
-  // Keep internal page content synced with parent if prop updates from outside
-  useEffect(() => {
-    if (isInternalChangeRef.current) {
-      isInternalChangeRef.current = false;
-      return;
-    }
-    if (activePage && activePage.type === "text" && activePage.content !== noteContent) {
-      setPages((prev) =>
-        prev.map((p) => (p.id === activePage.id ? { ...p, content: noteContent } : p))
-      );
-    }
-  }, [noteContent]);
 
   // Create a new page
   const handleCreatePage = (type: "text" | "whiteboard") => {
@@ -278,7 +257,7 @@ export default function NotesWidget({
       id: newId,
       title: type === "text" ? `📝 Document ${pages.length + 1}` : `🎨 Drawing Board ${pages.length + 1}`,
       type,
-      content: type === "text" ? "# New Lecture Notes\n\nWrite down your concepts here..." : "",
+      content: "",
       drawPaths: []
     };
 
@@ -592,35 +571,9 @@ export default function NotesWidget({
   const renderAltMode = () => {
     const isAltMini = viewMode === "alt_mini";
 
-    const activePolaroids: PolaroidItem[] = activePage.polaroids || [
-      {
-        id: "default-p1",
-        src: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=200&auto=format&fit=crop",
-        caption: "Focus Chamber",
-        x: 6,
-        y: 53,
-        rotate: 3
-      }
-    ];
+    const activePolaroids: PolaroidItem[] = activePage.polaroids || [];
 
-    const activeStickers: StickerItem[] = activePage.stickers || [
-      {
-        id: "default-s1",
-        emoji: "☕",
-        x: 62,
-        y: 12,
-        rotate: -12,
-        scale: 1.2
-      },
-      {
-        id: "default-s2",
-        emoji: "🌿",
-        x: 84,
-        y: 72,
-        rotate: 15,
-        scale: 1.1
-      }
-    ];
+    const activeStickers: StickerItem[] = activePage.stickers || [];
 
     const pageFontFamily = activePage.fontFamily || "font-clock-architects";
     const pageTextureStyle = activePage.textureStyle || "parchment";

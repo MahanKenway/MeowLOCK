@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import DiscoverMusic from "./DiscoverMusic";
 import SpotifyManualLinkSection from "./SpotifyManualLinkSection";
+import ScrollReveal from "./ScrollReveal";
 import { getLyricsClientSide, resolveArchiveStream, resolveLastfmStream } from "../services/music";
 import { SpotifyService, SpotifyTrack } from "../services/SpotifyService";
 
@@ -1296,6 +1297,7 @@ export default function MusicWidget({
   };
 
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
+  const lyricsContainerRef = useRef<HTMLDivElement | null>(null);
   const lastUrlRef = useRef<string>("");
 
   // Save changes to localStorage
@@ -3026,14 +3028,8 @@ export default function MusicWidget({
       {/* Active Track Cover Art */}
       <div className="flex gap-4 items-center bg-black/30 border border-white/5 rounded-2xl p-4 mb-4 z-10">
         <div 
-          className={`relative shrink-0 w-20 h-20 group ${currentTrackIdx >= 0 ? "cursor-pointer" : ""}`} 
+          className="relative shrink-0 w-20 h-20 group" 
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => {
-            if (currentTrackIdx >= 0) {
-              coverInputRef.current?.click();
-            }
-          }}
-          title={currentTrackIdx >= 0 ? "Click to change cover art" : undefined}
         >
           <div 
             className="absolute inset-0 rounded-2xl blur-md transition-all duration-700 opacity-20" 
@@ -3042,13 +3038,13 @@ export default function MusicWidget({
           {isYoutubePlayback && ytVideoId ? (
             <div className="w-20 h-20 rounded-xl overflow-hidden relative z-10 border border-white/10 shrink-0">
               <iframe
-                ref={ytIframeRef}
-                src={`https://www.youtube.com/embed/${ytVideoId}?autoplay=${isPlaying ? 1 : 0}&enablejsapi=1&controls=0&rel=0&showinfo=0&iv_load_policy=3&mute=${isMuted ? 1 : 0}`}
-                title="YouTube Video"
-                className="w-full h-full object-cover scale-[1.35]"
-                allow="autoplay; encrypted-media"
-                referrerPolicy="no-referrer"
-              />
+                 ref={ytIframeRef}
+                 src={`https://www.youtube.com/embed/${ytVideoId}?autoplay=${isPlaying ? 1 : 0}&enablejsapi=1&controls=0&rel=0&showinfo=0&iv_load_policy=3&mute=${isMuted ? 1 : 0}`}
+                 title="YouTube Video"
+                 className="w-full h-full object-cover scale-[1.35]"
+                 allow="autoplay; encrypted-media"
+                 referrerPolicy="no-referrer"
+               />
             </div>
           ) : (
             <img 
@@ -3058,12 +3054,6 @@ export default function MusicWidget({
               className="w-20 h-20 rounded-xl object-cover border relative z-10 transition-all duration-500 group-hover:scale-[1.03]"
               style={{ borderColor: isPlaying ? dominantColor : "rgba(255,255,255,0.1)" }}
             />
-          )}
-          {currentTrackIdx >= 0 && (
-            <div className="absolute inset-0 bg-black/60 rounded-xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 border border-white/10">
-              <Upload className="w-5 h-5 text-white mb-1 animate-bounce" />
-              <span className="text-[8px] font-sans font-bold text-gray-200">Change Art</span>
-            </div>
           )}
           {isPlaying && (
             <div 
@@ -3471,7 +3461,7 @@ export default function MusicWidget({
               </div>
             ) : (
               /* Highly polished custom-styled scrolling active lyrics */
-              <div className="flex-1 overflow-y-auto max-h-[190px] pr-1.5 space-y-3.5 scroll-smooth custom-scrollbar relative py-2 select-text text-left">
+              <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto max-h-[190px] pr-1.5 space-y-3.5 scroll-smooth custom-scrollbar relative py-2 select-text text-left">
                 {lyricsData.lyrics.map((lyric, idx) => {
                   const isActive = idx === activeLyricIdx;
                   return (
@@ -3496,7 +3486,19 @@ export default function MusicWidget({
                       }}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <span className="leading-relaxed font-sans">{lyric.text}</span>
+                        <ScrollReveal
+                          scrollContainerRef={lyricsContainerRef}
+                          baseOpacity={0.3}
+                          enableBlur={true}
+                          baseRotation={0}
+                          blurStrength={6}
+                          containerClassName="text-left m-0 inline"
+                          textClassName={`leading-relaxed font-sans ${
+                            isActive ? "font-black text-white text-sm" : "text-gray-400/70 hover:text-gray-200 text-xs"
+                          }`}
+                        >
+                          {lyric.text}
+                        </ScrollReveal>
                         <span className="font-mono text-[8px] opacity-0 group-hover/lyric:opacity-80 transition-opacity shrink-0 py-0.5 px-1 bg-white/5 rounded border border-white/5 select-none">
                           {formatTime(lyric.time)}
                         </span>

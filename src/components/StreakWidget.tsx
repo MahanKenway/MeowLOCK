@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Award, Calendar, Flame, X, Plus, Info, Zap, HelpCircle, Minimize2, Maximize2, Pin } from "lucide-react";
 import { FocusSession } from "../types";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
+import { getSystemTime, getLocalYYYYMMDD, getSessionLocalYYYYMMDD } from "../utils/time";
 
 function CustomStar({
   className = "w-5 h-5",
@@ -83,6 +85,25 @@ function CustomStar({
   );
 }
 
+// Custom Recharts tooltip for the 7-day focus duration mini bar chart
+const MiniTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-neutral-950/95 border border-white/10 px-2 py-1.5 rounded-lg text-[9px] shadow-2xl font-sans text-white">
+        <p className="font-semibold text-gray-300">{data.label} ({data.dateStr})</p>
+        <p className="text-amber-400 font-mono font-bold mt-0.5">{data.totalMin} mins</p>
+        {data.sessionsCount > 0 && (
+          <p className="text-[8px] text-gray-500 font-mono mt-0.5">
+            {data.sessionsCount} session{data.sessionsCount > 1 ? "s" : ""}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 interface StreakWidgetProps {
   sessions: FocusSession[];
   onAddSession?: (session: FocusSession) => void;
@@ -104,7 +125,7 @@ export default function StreakWidget({
   };
 
   const getUniqueFocusDates = () => {
-    const dates = getCompletedSessions().map((s) => s.startTime.substring(0, 10));
+    const dates = getCompletedSessions().map((s) => getSessionLocalYYYYMMDD(s.startTime));
     return Array.from(new Set(dates)).sort();
   };
 
@@ -113,9 +134,22 @@ export default function StreakWidget({
   const nextSparkId = useRef(0);
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [isMiniHovered, setIsMiniHovered] = useState(false);
+  const [overrideTrigger, setOverrideTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleOverride = () => {
+      setOverrideTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("storage", handleOverride);
+    window.addEventListener("focus-time-override", handleOverride);
+    return () => {
+      window.removeEventListener("storage", handleOverride);
+      window.removeEventListener("focus-time-override", handleOverride);
+    };
+  }, []);
 
   // Auto-log checking & magic completion status
-  const todayStr = new Date().toISOString().substring(0, 10);
+  const todayStr = getLocalYYYYMMDD(getSystemTime());
   const uniqueDates = getUniqueFocusDates();
   const hasCompletedToday = uniqueDates.includes(todayStr);
 
@@ -145,10 +179,10 @@ export default function StreakWidget({
     const uniqueDates = getUniqueFocusDates();
     if (uniqueDates.length === 0) return 0;
 
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const yesterday = new Date();
+    const todayStr = getLocalYYYYMMDD(getSystemTime());
+    const yesterday = getSystemTime();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().substring(0, 10);
+    const yesterdayStr = getLocalYYYYMMDD(yesterday);
 
     const lastSessionDate = uniqueDates[uniqueDates.length - 1];
     if (lastSessionDate !== todayStr && lastSessionDate !== yesterdayStr) {
@@ -157,10 +191,11 @@ export default function StreakWidget({
 
     let streakCount = 1;
     for (let i = uniqueDates.length - 2; i >= 0; i--) {
-      const current = new Date(uniqueDates[i + 1]);
-      const prev = new Date(uniqueDates[i]);
+      // Append local midnight to prevent offset shifts when constructing new Date from YYYY-MM-DD
+      const current = new Date(uniqueDates[i + 1] + "T00:00:00");
+      const prev = new Date(uniqueDates[i] + "T00:00:00");
       const diffTime = Math.abs(current.getTime() - prev.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
         streakCount++;
@@ -186,8 +221,8 @@ export default function StreakWidget({
 
   // Daily focus minutes today vs goal
   const getTodayFocusMinutes = () => {
-    const todayStr = new Date().toISOString().substring(0, 10);
-    const todaySessions = getCompletedSessions().filter((s) => s.startTime.substring(0, 10) === todayStr);
+    const todayStr = getLocalYYYYMMDD(getSystemTime());
+    const todaySessions = getCompletedSessions().filter((s) => getSessionLocalYYYYMMDD(s.startTime) === todayStr);
     return todaySessions.reduce((acc, s) => acc + Math.round(s.duration / 60), 0);
   };
 
@@ -201,12 +236,12 @@ export default function StreakWidget({
     const uniqueDates = getUniqueFocusDates();
     
     for (let i = 6; i >= 0; i--) {
-      const date = new Date();
+      const date = getSystemTime();
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().substring(0, 10);
+      const dateStr = getLocalYYYYMMDD(date);
       
       const hasCompleted = uniqueDates.includes(dateStr);
-      const daySessions = getCompletedSessions().filter((s) => s.startTime.substring(0, 10) === dateStr);
+      const daySessions = getCompletedSessions().filter((s) => getSessionLocalYYYYMMDD(s.startTime) === dateStr);
       const totalMin = daySessions.reduce((acc, s) => acc + Math.round(s.duration / 60), 0);
 
       daysList.push({
@@ -579,6 +614,57 @@ export default function StreakWidget({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* 7-Day Focus Duration Mini Bar Chart */}
+              <div className="p-3 bg-white/[0.01] border border-white/5 rounded-2xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-mono font-bold tracking-wider text-gray-400 uppercase">7-Day Duration</span>
+                  <span className="text-[9px] font-sans text-gray-500">Mins focused</span>
+                </div>
+                <div className="h-20 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weekDays} margin={{ top: 2, right: 2, left: -32, bottom: -5 }}>
+                      <defs>
+                        <linearGradient id="streakMiniGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#c084fc" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0.15} />
+                        </linearGradient>
+                        <linearGradient id="streakMiniActiveGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.15} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: '#6b7280', fontSize: 7, fontWeight: 600 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: '#6b7280', fontSize: 7, fontFamily: 'monospace' }}
+                        axisLine={false}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <Tooltip content={<MiniTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.02)' }} />
+                      <Bar
+                        dataKey="totalMin"
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={14}
+                      >
+                        {weekDays.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.hasCompleted ? "url(#streakMiniActiveGrad)" : "url(#streakMiniGrad)"}
+                            stroke={entry.hasCompleted ? "#fbbf24" : "#818cf8"}
+                            strokeWidth={0.5}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 

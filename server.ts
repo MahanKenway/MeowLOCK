@@ -11,27 +11,23 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
-// Lazy initialize Gemini AI with safe guards
-const apiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
 
-if (apiKey) {
-  try {
-    ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        },
-      },
-    });
-    console.log("Gemini AI client successfully initialized server-side.");
-  } catch (err) {
-    console.error("Failed to initialize Gemini AI Client:", err);
+// Dynamic Lazy Initialization Middleware for Gemini AI
+app.use((req, res, next) => {
+  if (!ai) {
+    const key = process.env.GEMINI_API_KEY;
+    if (key) {
+      try {
+        ai = new GoogleGenAI({ apiKey: key });
+        console.log("[Gemini Client] Lazy initialized successfully.");
+      } catch (err) {
+        console.error("[Gemini Client] Lazy initialization failed:", err);
+      }
+    }
   }
-} else {
-  console.warn("GEMINI_API_KEY is not defined in the environment. AI features will ask for configuration.");
-}
+  next();
+});
 
 // ----------------- CACHING SYSTEMS & FALLBACKS FOR GEMINI -----------------
 const songGuessCache = new Map<string, { song: string; artist: string; isInstrumentalOrStudy: boolean; explanation: string }>();
@@ -619,6 +615,58 @@ app.post("/api/gemini/notes-assistant", async (req, res) => {
       console.error("Error in notes-assistant:", err);
       res.status(500).json({ error: err.message || "Failed to process notes assistant." });
     }
+  }
+});
+
+// 2b. Search direct download links for a book using Google Search Grounding
+app.post("/api/gemini/search-download-links", async (req, res) => {
+  if (!checkAi(res)) return;
+  const { title, authors } = req.body;
+
+  if (!title) {
+    res.status(400).json({ error: "Book title is required." });
+    return;
+  }
+
+  const query = `Find direct, free, open-access public domain download or stream links (PDF, EPUB, TXT, or HTML) for the book "${title}"${authors && Array.isArray(authors) && authors.length > 0 ? ` by ${authors.join(", ")}` : ""}.
+Prefer open repositories like Internet Archive (archive.org), Project Gutenberg (gutenberg.org), openlibrary.org, PDF Drive, or university digital collections.
+Avoid paywalls or illegal websites.
+Return your answer strictly in a JSON array format (no markdown backticks, no wrap, just the raw array) with objects having the keys: "title", "url", "format", and "source".
+For example:
+[
+  {"title": "Read Free on Project Gutenberg", "url": "https://www.gutenberg.org/ebooks/11.txt.utf-8", "format": "TXT", "source": "Gutenberg"},
+  {"title": "Download EPUB on Internet Archive", "url": "https://archive.org/download/alice-in-wonderland/alice.epub", "format": "EPUB", "source": "Archive.org"}
+]`;
+
+  try {
+    const response = await ai!.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ text: query }],
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+      },
+    });
+
+    let jsonText = response.text || "[]";
+    let links = [];
+    try {
+      links = JSON.parse(jsonText.trim());
+    } catch (e) {
+      const match = jsonText.match(/\[[\s\S]*\]/);
+      if (match) {
+        try {
+          links = JSON.parse(match[0]);
+        } catch (e2) {
+          // ignore
+        }
+      }
+    }
+
+    res.json({ status: "success", links });
+  } catch (err: any) {
+    console.error("Error in search-download-links:", err);
+    res.status(500).json({ error: err.message || "Failed to search download links." });
   }
 });
 
@@ -1939,65 +1987,141 @@ app.post("/api/fun-occasions", async (req, res) => {
     console.warn("Wikidata API fetch failed:", err);
   }
 
-  // 3. Consolidate, translate to Persian, and inject Days Of The Year
-  if (!ai) {
-    res.json({
-      occasions: results.map(r => ({
-        titleFa: r.titleEn,
-        isOfficial: r.type === "National" || false,
-        isFun: true
-      }))
-    });
-    return;
-  }
+  // 3. Consolidate and translate to Persian offline (AI removed per user instructions)
+  const translateTitleToFa = (titleEn: string): string => {
+    if (!titleEn) return "";
+    let clean = titleEn.trim();
+    
+    // Clean up common Wikipedia/Wikidata suffix patterns
+    clean = clean.replace(/\s*\(.*?\)\s*/g, " ").trim();
 
-  try {
-    const prompt = `Consolidate these external raw events fetched from APIs on the Gregorian date ${targetYear}-${paddedMonth}-${paddedDay}:
-${JSON.stringify(results, null, 2)}
+    // Simple key-value exact/partial translations for famous days
+    const dict: Record<string, string> = {
+      "New Year's Day": "آغاز سال نو میلادی 🎉",
+      "Christmas Day": "جشن کریسمس 🎄",
+      "Halloween": "جشن هالووین 🎃",
+      "Valentine's Day": "روز عشق و دوستی (ولنتاین) ❤️",
+      "Earth Day": "روز جهانی زمین پاک 🌍",
+      "Mother's Day": "روز مادر 👩",
+      "Father's Day": "روز پدر 👨",
+      "Labor Day": "روز کارگر 🛠️",
+      "Independence Day": "روز استقلال 🇺🇸",
+      "Veterans Day": "روز کهنه‌سربازان 🎖️",
+      "Thanksgiving": "جشن شکرگزاری 🦃",
+      "Pi Day": "روز جهانی عدد پی 🥧",
+      "Cat Day": "روز جهانی گربه 🐱",
+      "Dog Day": "روز جهانی سگ 🐶",
+      "Programmer's Day": "روز جهانی برنامه‌نویس 💻",
+      "Pizza Day": "روز جهانی پیتزا 🍕",
+      "Chocolate Day": "روز جهانی شکلات 🍫",
+      "Chess Day": "روز جهانی شطرنج ♟️",
+      "Friendship Day": "روز جهانی دوستی 🤝",
+      "Book Day": "روز جهانی کتاب 📚",
+      "Water Day": "روز جهانی آب 💧",
+      "Peace Day": "روز جهانی صلح 🕊️",
+      "Music Day": "روز جهانی موسیقی 🎵",
+      "Art Day": "روز جهانی هنر 🎨",
+      "Coffee Day": "روز جهانی قهوه ☕",
+      "Tea Day": "روز جهانی چای 🍵",
+      "Emoji Day": "روز جهانی اموجی 😀"
+    };
 
-Your task is to:
-1. Translate all English event names, descriptions, or holiday titles into natural, beautifully styled Persian (Farsi).
-2. Add any globally famous "Days Of The Year" (fun, wacky, or internet holidays like National Cat Day, Programmer's Day, Pi Day, Pizza Day, etc.) if they fall on this month/day (${paddedMonth}-${paddedDay}).
-3. Return a clean, verified list of occasions for this specific calendar day.
-Each occasion MUST contain:
-- "titleFa": Elegant Persian title with relevant emojis (e.g. "روز جهانی پیتزا 🍕", "روز استقلال ایالات متحده 🇺🇸")
-- "isOfficial": Boolean (true for major official national events, false for fun/informal ones)
-- "isFun": Boolean (true if it's a wacky, fun, or internet-culture day)
-
-Provide the response as a strict JSON array under the key "occasions". Do not add any explanation or markdown wraps.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            occasions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  titleFa: { type: Type.STRING },
-                  isOfficial: { type: Type.BOOLEAN },
-                  isFun: { type: Type.BOOLEAN }
-                },
-                required: ["titleFa", "isOfficial", "isFun"]
-              }
-            }
-          },
-          required: ["occasions"]
-        }
+    for (const [en, fa] of Object.entries(dict)) {
+      if (clean.toLowerCase().includes(en.toLowerCase())) {
+        return fa;
       }
-    });
+    }
 
-    const parsed = JSON.parse(response.text.trim());
-    res.json({ occasions: parsed.occasions || [] });
-  } catch (err) {
-    console.error("Gemini failed to translate / build fun occasions:", err);
-    res.json({ occasions: [] });
-  }
+    // Fallback word-by-word replacement
+    const words = clean.split(/\s+/);
+    const faWords = words.map(w => {
+      const l = w.toLowerCase().replace(/[^a-z]/g, "");
+      switch (l) {
+        case "world": return "جهانی";
+        case "international": return "بین‌المللی";
+        case "national": return "ملی";
+        case "day": return "روز";
+        case "of": return "";
+        case "the": return "";
+        case "and": return "و";
+        case "festival": return "جشنواره";
+        case "celebration": return "جشن";
+        case "memorial": return "بزرگداشت";
+        case "anniversary": return "سالگرد";
+        case "music": return "موسیقی";
+        case "art": return "هنر";
+        case "science": return "علم";
+        case "space": return "فضا";
+        case "cat": return "گربه";
+        case "dog": return "سگ";
+        case "book": return "کتاب";
+        case "water": return "آب";
+        case "peace": return "صلح";
+        case "love": return "عشق";
+        case "friendship": return "دوستی";
+        case "youth": return "جوانان";
+        case "children": return "کودکان";
+        case "women": return "زنان";
+        case "men": return "مردان";
+        case "health": return "سلامت";
+        case "mental": return "روانی";
+        case "food": return "غذا";
+        case "coffee": return "قهوه";
+        case "tea": return "چای";
+        case "chocolate": return "شکلات";
+        default: return w;
+      }
+    }).filter(Boolean);
+
+    let resultFa = faWords.join(" ");
+
+    // Ensure "روز" is placed nicely if "جهانی" or "بین‌المللی" is present
+    const containsDay = faWords.includes("روز");
+    const containsWorld = faWords.includes("جهانی") || faWords.includes("بین‌المللی");
+    
+    if (containsDay && containsWorld) {
+      const type = faWords.includes("جهانی") ? "جهانی" : "بین‌المللی";
+      const rest = faWords.filter(w => w !== "روز" && w !== "جهانی" && w !== "بین‌المللی");
+      resultFa = `روز ${type} ${rest.join(" ")}`;
+    } else if (containsDay) {
+      const rest = faWords.filter(w => w !== "روز");
+      resultFa = `روز ${rest.join(" ")}`;
+    }
+
+    // Add matching emoji
+    const lowerClean = clean.toLowerCase();
+    if (lowerClean.includes("cat") || lowerClean.includes("feline")) resultFa += " 🐱";
+    else if (lowerClean.includes("dog") || lowerClean.includes("puppy")) resultFa += " 🐶";
+    else if (lowerClean.includes("pizza")) resultFa += " 🍕";
+    else if (lowerClean.includes("coffee")) resultFa += " ☕";
+    else if (lowerClean.includes("tea")) resultFa += " 🍵";
+    else if (lowerClean.includes("chocolate")) resultFa += " 🍫";
+    else if (lowerClean.includes("water") || lowerClean.includes("ocean") || lowerClean.includes("sea")) resultFa += " 💧";
+    else if (lowerClean.includes("book") || lowerClean.includes("read") || lowerClean.includes("library")) resultFa += " 📚";
+    else if (lowerClean.includes("earth") || lowerClean.includes("nature") || lowerClean.includes("environment")) resultFa += " 🌍";
+    else if (lowerClean.includes("music") || lowerClean.includes("song") || lowerClean.includes("melody")) resultFa += " 🎵";
+    else if (lowerClean.includes("space") || lowerClean.includes("cosmos") || lowerClean.includes("astronaut") || lowerClean.includes("star")) resultFa += " 🚀";
+    else if (lowerClean.includes("heart") || lowerClean.includes("love") || lowerClean.includes("valentine")) resultFa += " ❤️";
+    else if (lowerClean.includes("light") || lowerClean.includes("idea") || lowerClean.includes("creativity") || lowerClean.includes("innovation")) resultFa += " 💡";
+    else if (lowerClean.includes("code") || lowerClean.includes("program") || lowerClean.includes("computer") || lowerClean.includes("developer")) resultFa += " 💻";
+    else if (lowerClean.includes("art") || lowerClean.includes("paint") || lowerClean.includes("design")) resultFa += " 🎨";
+    else if (lowerClean.includes("sport") || lowerClean.includes("run") || lowerClean.includes("game") || lowerClean.includes("chess")) resultFa += " ♟️";
+    else if (lowerClean.includes("peace") || lowerClean.includes("dove") || lowerClean.includes("freedom")) resultFa += " 🕊️";
+
+    return resultFa.trim();
+  };
+
+  const consolidated = results.map(r => {
+    const titleEn = r.titleEn || "";
+    const titleFa = translateTitleToFa(titleEn) || titleEn;
+    return {
+      titleFa,
+      isOfficial: r.type === "National" || false,
+      isFun: true
+    };
+  }).filter(o => o.titleFa.length > 0);
+
+  res.json({ occasions: consolidated });
 });
 
 // ----------------- MUSIC SEARCH & RESOLVE PROXIES -----------------
@@ -2601,6 +2725,159 @@ app.post("/api/spotify/heartbeat", (req, res) => {
       ? `Successfully simulated heartbeat for "${trackName}".` 
       : "Logged idle/paused state successfully."
   });
+});
+
+// ----------------- Z-LIBRARY AND PDF STUDY COMPANION ENDPOINTS -----------------
+import { execFile } from "child_process";
+
+function runZlibHelper(args: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.join(process.cwd(), "zlib_api_helper.py");
+    execFile("python3", [scriptPath, JSON.stringify(args)], (error, stdout, stderr) => {
+      if (error) {
+        console.error("Zlib helper process error:", error);
+        console.error("Stderr:", stderr);
+        return reject(new Error(stderr || error.message));
+      }
+      try {
+        const result = JSON.parse(stdout.trim());
+        resolve(result);
+      } catch (err) {
+        console.error("Failed to parse helper output:", stdout);
+        reject(new Error("Invalid JSON output from Python script"));
+      }
+    });
+  });
+}
+
+app.post("/api/zlib/login", async (req, res) => {
+  const { email, password, mirror } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Missing email or password" });
+  }
+  try {
+    const result = await runZlibHelper({ action: "login", email, password, mirror });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/zlib/search", async (req, res) => {
+  const { query, cookies, page, source, mirror } = req.body;
+  if (!query) {
+    return res.status(400).json({ error: "Missing query" });
+  }
+  try {
+    const result = await runZlibHelper({ action: "search", query, cookies, page: page || 1, source: source || "all", mirror });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/zlib/fetch_book", async (req, res) => {
+  const { id, cookies, mirror } = req.body;
+  if (!id) {
+    return res.status(400).json({ error: "Missing id" });
+  }
+  try {
+    const result = await runZlibHelper({ action: "fetch_book", id, cookies, mirror });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/zlib/search-direct-copies", async (req, res) => {
+  const { title, authors } = req.body;
+  if (!title) {
+    return res.status(400).json({ error: "Missing title parameter" });
+  }
+  try {
+    const result = await runZlibHelper({ action: "search_direct_copies", title, authors: authors || [] });
+    res.json({ status: "success", links: result.links || [] });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/zlib/download-proxy", async (req, res) => {
+  const { url, cookies } = req.query;
+  if (!url) {
+    return res.status(400).json({ error: "Missing url parameter" });
+  }
+
+  try {
+    let finalUrl = url as string;
+    let isGutenberg = finalUrl.includes("gutenberg.org");
+
+    // Automatically rewrite Gutenberg redirect paths to high-speed direct HTTPS cache files
+    if (isGutenberg) {
+      if (finalUrl.includes("/ebooks/")) {
+        const txtMatch = finalUrl.match(/\/ebooks\/(\d+)\.txt\.utf-8/);
+        const htmlMatch = finalUrl.match(/\/ebooks\/(\d+)\.html\.images/);
+        const genericMatch = finalUrl.match(/\/ebooks\/(\d+)/);
+
+        if (txtMatch) {
+          finalUrl = `https://www.gutenberg.org/cache/epub/${txtMatch[1]}/pg${txtMatch[1]}.txt`;
+        } else if (htmlMatch) {
+          finalUrl = `https://www.gutenberg.org/cache/epub/${htmlMatch[1]}/pg${htmlMatch[1]}-images.html`;
+        } else if (genericMatch) {
+          finalUrl = `https://www.gutenberg.org/cache/epub/${genericMatch[1]}/pg${genericMatch[1]}.txt`;
+        }
+      }
+    }
+
+    let parsedCookies = {};
+    if (cookies && !isGutenberg) {
+      try {
+        parsedCookies = JSON.parse(cookies as string);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const headers: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    };
+
+    if (Object.keys(parsedCookies).length > 0) {
+      headers["Cookie"] = Object.entries(parsedCookies)
+        .map(([k, v]) => `${k}=${v}`)
+        .join("; ");
+    }
+
+    const response = await fetch(finalUrl, { headers });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
+    }
+
+    let contentType = response.headers.get("content-type") || "";
+    if (!contentType) {
+      if (finalUrl.endsWith(".txt")) {
+        contentType = "text/plain; charset=utf-8";
+      } else if (finalUrl.endsWith(".html") || finalUrl.endsWith(".htm")) {
+        contentType = "text/html; charset=utf-8";
+      } else {
+        contentType = "application/octet-stream";
+      }
+    }
+
+    // Force inline content-disposition so browser doesn't prompt download when we want to read it
+    const contentDisposition = `inline; filename="book-${Date.now()}.${finalUrl.endsWith(".html") ? "html" : "txt"}"`;
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", contentDisposition);
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.send(buffer);
+  } catch (err: any) {
+    console.error("Download proxy error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ----------------- STATIC FILES & VITE MIDDLEWARE -----------------

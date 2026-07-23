@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Play, Pause, RotateCcw, Settings, Maximize2, Minimize2, Bell, BellOff, ArrowRight } from "lucide-react";
 import { TimerMode, TimerSettings, FocusSession, Task, WorkspaceProfile } from "../types";
+import { getSystemTime } from "../utils/time";
 
 import MinimalModeOverlay from "./MinimalModeOverlay";
+import TiltedCard from "./TiltedCard";
 
 interface TimerWidgetProps {
   settings: TimerSettings;
@@ -24,6 +26,29 @@ interface TimerWidgetProps {
   activeTask?: Task | null;
   isMobile?: boolean;
   activeProfile?: WorkspaceProfile;
+  
+  // Zen widgets support
+  widgetsState?: {
+    todo: boolean;
+    music: boolean;
+    notes: boolean;
+    mixer: boolean;
+    stats: boolean;
+    streak: boolean;
+    radio: boolean;
+    calendar: boolean;
+    space: boolean;
+    wellness: boolean;
+    weather: boolean;
+    cat: boolean;
+  };
+  onToggleWidget?: (name: "todo" | "music" | "notes" | "mixer" | "stats" | "wellness") => void;
+  onToggleRadio?: () => void;
+  onToggleCalendar?: () => void;
+  onToggleStreak?: () => void;
+  onToggleSpace?: () => void;
+  onToggleWeather?: () => void;
+  onToggleCat?: () => void;
 }
 
 export default function TimerWidget({
@@ -45,6 +70,14 @@ export default function TimerWidget({
   activeTask = null,
   isMobile = false,
   activeProfile,
+  widgetsState,
+  onToggleWidget,
+  onToggleRadio,
+  onToggleCalendar,
+  onToggleStreak,
+  onToggleSpace,
+  onToggleWeather,
+  onToggleCat
 }: TimerWidgetProps) {
   const miniRef = useRef<HTMLDivElement>(null);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -55,14 +88,94 @@ export default function TimerWidget({
   const [customCountdownMin, setCustomCountdownMin] = useState(settings.countdown);
   const [showConfig, setShowConfig] = useState(false);
   const [isMiniMode, setIsMiniMode] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(getSystemTime());
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date());
+      setCurrentTime(getSystemTime());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Manual time / date override states
+  const [overrideEnabled, setOverrideEnabled] = useState(
+    localStorage.getItem("focus_time_override_enabled") === "true"
+  );
+  
+  // Calculate current simulated/manual date and time to initialize inputs
+  const currentSimulatedTime = getSystemTime();
+  const initDate = currentSimulatedTime.getFullYear() + "-" + 
+                   String(currentSimulatedTime.getMonth() + 1).padStart(2, "0") + "-" + 
+                   String(currentSimulatedTime.getDate()).padStart(2, "0");
+  const initTime = `${String(currentSimulatedTime.getHours()).padStart(2, "0")}:${String(currentSimulatedTime.getMinutes()).padStart(2, "0")}`;
+  
+  const [overrideDate, setOverrideDate] = useState(initDate);
+  const [overrideTime, setOverrideTime] = useState(initTime);
+
+  // Sync state with storage changes (e.g. if updated from elsewhere)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const isEnabled = localStorage.getItem("focus_time_override_enabled") === "true";
+      setOverrideEnabled(isEnabled);
+      const cur = getSystemTime();
+      const dStr = cur.getFullYear() + "-" + 
+                   String(cur.getMonth() + 1).padStart(2, "0") + "-" + 
+                   String(cur.getDate()).padStart(2, "0");
+      const tStr = `${String(cur.getHours()).padStart(2, "0")}:${String(cur.getMinutes()).padStart(2, "0")}`;
+      setOverrideDate(dStr);
+      setOverrideTime(tStr);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("focus-time-override", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("focus-time-override", handleStorageChange);
+    };
+  }, []);
+
+  const handleOverrideToggle = (enabled: boolean) => {
+    setOverrideEnabled(enabled);
+    localStorage.setItem("focus_time_override_enabled", String(enabled));
+    if (!enabled) {
+      localStorage.removeItem("focus_time_offset");
+    } else {
+      applyOverrideOffset(overrideDate, overrideTime);
+    }
+    // Fire storage events so other widgets refresh immediately
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("focus-time-override"));
+  };
+
+  const applyOverrideOffset = (dateStr: string, timeStr: string) => {
+    try {
+      const targetStr = `${dateStr}T${timeStr}:00`;
+      const targetDate = new Date(targetStr);
+      if (!isNaN(targetDate.getTime())) {
+        const offset = targetDate.getTime() - Date.now();
+        localStorage.setItem("focus_time_offset", String(offset));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOverrideDateChange = (date: string) => {
+    setOverrideDate(date);
+    if (overrideEnabled) {
+      applyOverrideOffset(date, overrideTime);
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("focus-time-override"));
+    }
+  };
+
+  const handleOverrideTimeChange = (time: string) => {
+    setOverrideTime(time);
+    if (overrideEnabled) {
+      applyOverrideOffset(overrideDate, time);
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("focus-time-override"));
+    }
+  };
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const stopwatchRef = useRef<NodeJS.Timeout | null>(null);
@@ -132,7 +245,7 @@ export default function TimerWidget({
   useEffect(() => {
     if (isRunning && mode !== "stopwatch") {
       if (!startTimeRef.current) {
-        startTimeRef.current = new Date().toISOString();
+        startTimeRef.current = getSystemTime().toISOString();
       }
 
       timerRef.current = setInterval(() => {
@@ -150,7 +263,7 @@ export default function TimerWidget({
             
             onSessionComplete({
               id: Math.random().toString(36).substring(2),
-              startTime: startTimeRef.current || new Date().toISOString(),
+              startTime: startTimeRef.current || getSystemTime().toISOString(),
               duration: elapsed,
               mode: mode as TimerMode,
               completed: true,
@@ -189,7 +302,7 @@ export default function TimerWidget({
   useEffect(() => {
     if (isRunning && mode === "stopwatch") {
       if (!startTimeRef.current) {
-        startTimeRef.current = new Date().toISOString();
+        startTimeRef.current = getSystemTime().toISOString();
       }
 
       stopwatchRef.current = setInterval(() => {
@@ -217,7 +330,7 @@ export default function TimerWidget({
       if (stopwatchTime > 10) {
         onSessionComplete({
           id: Math.random().toString(36).substring(2),
-          startTime: new Date().toISOString(),
+          startTime: getSystemTime().toISOString(),
           duration: stopwatchTime,
           mode: "stopwatch",
           completed: true,
@@ -286,6 +399,14 @@ export default function TimerWidget({
         onSettingsChange={onSettingsChange}
         activeProfileName={activeProfileName}
         activeProfile={activeProfile}
+        widgetsState={widgetsState}
+        onToggleWidget={onToggleWidget}
+        onToggleRadio={onToggleRadio}
+        onToggleCalendar={onToggleCalendar}
+        onToggleStreak={onToggleStreak}
+        onToggleSpace={onToggleSpace}
+        onToggleWeather={onToggleWeather}
+        onToggleCat={onToggleCat}
       />
     );
   }
@@ -530,6 +651,53 @@ export default function TimerWidget({
                     className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
                   />
                 </div>
+
+                {/* Manual Time & Date Override Section */}
+                <div className="pt-4 mt-2 border-t border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="font-sans font-semibold text-xs text-amber-400">Manual Time Override</h5>
+                      <p className="font-sans text-[10px] text-gray-400">Adjust date & clock manually for testing</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={overrideEnabled}
+                        onChange={(e) => handleOverrideToggle(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-white/10 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                    </label>
+                  </div>
+
+                  {overrideEnabled && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="grid grid-cols-2 gap-3 pt-1"
+                    >
+                      <div>
+                        <label className="font-sans text-[11px] text-gray-400 block mb-1">Set Date</label>
+                        <input
+                          type="date"
+                          value={overrideDate}
+                          onChange={(e) => handleOverrideDateChange(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none [color-scheme:dark]"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-sans text-[11px] text-gray-400 block mb-1">Set Time</label>
+                        <input
+                          type="time"
+                          value={overrideTime}
+                          onChange={(e) => handleOverrideTimeChange(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-amber-400 focus:outline-none [color-scheme:dark]"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
 
               <button
@@ -553,7 +721,7 @@ export default function TimerWidget({
       dragTransition={{ power: 0.06, timeConstant: 180 }}
       id="timer-widget"
       data-window-title="Timer.exe"
-      className={isMobile ? "relative w-full z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-6 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window" : "absolute top-6 right-6 z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 px-8 py-5 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window cursor-move"}
+      className={isMobile ? "relative w-full z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window" : "absolute top-6 right-6 z-50 bg-[#0a0a0a]/40 backdrop-blur-xl border border-white/10 shadow-2xl flex flex-col items-center justify-center text-white select-none retro-window cursor-move"}
       style={{
         borderRadius: `${windowRoundness}px`,
         resize: isMobile ? 'none' : 'both',
@@ -563,60 +731,75 @@ export default function TimerWidget({
         minHeight: isMobile ? 'auto' : '300px'
       }}
     >
-      {onClose && (
-        <button
-          onClick={onClose}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="absolute top-3 right-3 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-        </button>
-      )}
-      <span className="font-sans text-[13px] font-bold text-white mb-2 capitalize">
-        {mode === "shortBreak" ? "Short Break" : mode === "longBreak" ? "Long Break" : mode === "pomodoro" ? "Focus" : mode}
-      </span>
-      {activeTask && !activeTask.completed && mode === "pomodoro" && (
-        <div className="mb-2 px-3 py-1.5 bg-white/5 border border-white/5 rounded-xl text-center max-w-[220px] truncate animate-pulse">
-          <span className="text-[9px] text-amber-400 font-sans font-bold uppercase tracking-wider block">🎯 CURRENT FOCUS</span>
-          <span className="text-[10px] text-gray-200 font-semibold truncate block mt-0.5">{activeTask.title}</span>
-        </div>
-      )}
-      <span className={`${clockFontClass} text-[52px] font-bold tracking-tighter leading-none mb-4`}>
-        {mode === "stopwatch" ? formatTime(stopwatchTime) : formatTime(timeLeft)}
-      </span>
-      
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleStartPause}
-          className="bg-[#7c3aed] hover:bg-[#6d28d9] text-white px-6 py-2 rounded-full font-sans font-bold text-[13px] transition-colors cursor-pointer w-[100px] shadow-lg"
-        >
-          {isRunning ? "Pause" : "Start"}
-        </button>
-        <button
-          onClick={handleReset}
-          className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 hover:text-white rounded-full transition-all"
-          title="Reset"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      <TiltedCard
+        imageSrc=""
+        containerHeight="auto"
+        containerWidth="100%"
+        imageHeight="auto"
+        imageWidth="100%"
+        scaleOnHover={1.015}
+        rotateAmplitude={4}
+        showTooltip={false}
+        noFallbackBg={true}
+        relativeChildren={true}
+      >
+        <div className="w-full h-full flex flex-col items-center justify-center p-6 relative">
+          {onClose && (
+            <button
+              onClick={onClose}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="absolute top-3 right-3 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          )}
+          <span className="font-sans text-[13px] font-bold text-white mb-2 capitalize">
+            {mode === "shortBreak" ? "Short Break" : mode === "longBreak" ? "Long Break" : mode === "pomodoro" ? "Focus" : mode}
+          </span>
+          {activeTask && !activeTask.completed && mode === "pomodoro" && (
+            <div className="mb-2 px-3 py-1.5 bg-white/5 border border-white/5 rounded-xl text-center max-w-[220px] truncate animate-pulse">
+              <span className="text-[9px] text-amber-400 font-sans font-bold uppercase tracking-wider block">🎯 CURRENT FOCUS</span>
+              <span className="text-[10px] text-gray-200 font-semibold truncate block mt-0.5">{activeTask.title}</span>
+            </div>
+          )}
+          <span className={`${clockFontClass} text-[52px] font-bold tracking-tighter leading-none mb-4`}>
+            {mode === "stopwatch" ? formatTime(stopwatchTime) : formatTime(timeLeft)}
+          </span>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleStartPause}
+              className="bg-[#7c3aed] hover:bg-[#6d28d9] text-white px-6 py-2 rounded-full font-sans font-bold text-[13px] transition-colors cursor-pointer w-[100px] shadow-lg"
+            >
+              {isRunning ? "Pause" : "Start"}
+            </button>
+            <button
+              onClick={handleReset}
+              className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 hover:text-white rounded-full transition-all"
+              title="Reset"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
-      {/* Quick Mode Switcher inside the Floating Widget */}
-      <div className="flex gap-1 p-0.5 bg-white/5 rounded-full border border-white/5 mt-4 select-none flex-wrap justify-center max-w-[250px]">
-        {(["pomodoro", "shortBreak", "longBreak", "stopwatch", "countdown"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => handleModeChange(m)}
-            className={`px-2.5 py-1 rounded-full text-[10px] font-sans font-semibold transition-all capitalize cursor-pointer ${
-              mode === m
-                ? "bg-white text-neutral-950 font-bold"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            {m === "pomodoro" ? "Focus" : m === "shortBreak" ? "Break" : m === "longBreak" ? "L. Break" : m}
-          </button>
-        ))}
-      </div>
+          {/* Quick Mode Switcher inside the Floating Widget */}
+          <div className="flex gap-1 p-0.5 bg-white/5 rounded-full border border-white/5 mt-4 select-none flex-wrap justify-center max-w-[250px]">
+            {(["pomodoro", "shortBreak", "longBreak", "stopwatch", "countdown"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => handleModeChange(m)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-sans font-semibold transition-all capitalize cursor-pointer ${
+                  mode === m
+                    ? "bg-white text-neutral-950 font-bold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {m === "pomodoro" ? "Focus" : m === "shortBreak" ? "Break" : m === "longBreak" ? "L. Break" : m}
+              </button>
+            ))}
+          </div>
+        </div>
+      </TiltedCard>
     </motion.div>
   );
 }

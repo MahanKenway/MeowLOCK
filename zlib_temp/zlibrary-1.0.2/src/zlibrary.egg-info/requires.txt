@@ -1,0 +1,12 @@
+aiodns
+aiohttp
+aiohttp_socks
+Brotli
+cffi
+ujson
+yarl
+multidict
+lxml
+beautifulsoup4
+bs4
+attrs

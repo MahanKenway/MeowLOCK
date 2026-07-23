@@ -76,6 +76,17 @@ export const googleSignOut = async () => {
   localStorage.removeItem("gcal_access_token");
 };
 
+// Expired session handler to clear cached token and trigger onAuthStateChanged
+export const handleAuthExpired = async () => {
+  cachedAccessToken = null;
+  localStorage.removeItem("gcal_access_token");
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error("Error signing out during auth expiration handle:", err);
+  }
+};
+
 // Helper: Get exclusive next day string for all-day events
 function getNextDayDateStr(dateStr: string): string {
   const d = new Date(dateStr);
@@ -127,6 +138,10 @@ export const syncMoodAndOccasionsToGoogle = async (
     });
     
     if (!listRes.ok) {
+      if (listRes.status === 401) {
+        await handleAuthExpired();
+        return { success: false, message: "نشست شما منقضی شده است. لطفاً دوباره وارد حساب گوگل خود شوید." };
+      }
       const errText = await listRes.text();
       console.error("Failed to list events for cleanup:", errText);
       throw new Error("خطا در برقراری ارتباط با تقویم گوگل");
@@ -143,10 +158,14 @@ export const syncMoodAndOccasionsToGoogle = async (
     
     // Delete duplicate events
     for (const ev of eventsToDelete) {
-      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.id}`, {
+      const delRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${cachedAccessToken}` }
       });
+      if (delRes.status === 401) {
+        await handleAuthExpired();
+        return { success: false, message: "نشست شما منقضی شده است. لطفاً دوباره وارد حساب گوگل خود شوید." };
+      }
     }
 
     // 2. Create the new Mood Event
@@ -170,6 +189,10 @@ export const syncMoodAndOccasionsToGoogle = async (
       });
       
       if (!createRes.ok) {
+        if (createRes.status === 401) {
+          await handleAuthExpired();
+          return { success: false, message: "نشست شما منقضی شده است. لطفاً دوباره وارد حساب گوگل خود شوید." };
+        }
         const errText = await createRes.text();
         console.error("Failed to create mood event:", errText);
         throw new Error("خطا در ایجاد رویداد حس و حال");
@@ -186,7 +209,7 @@ export const syncMoodAndOccasionsToGoogle = async (
         colorId: "9" // Cobalt (Blue)
       };
       
-      await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      const occRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${cachedAccessToken}`,
@@ -194,6 +217,11 @@ export const syncMoodAndOccasionsToGoogle = async (
         },
         body: JSON.stringify(occasionEvent)
       });
+
+      if (occRes.status === 401) {
+        await handleAuthExpired();
+        return { success: false, message: "نشست شما منقضی شده است. لطفاً دوباره وارد حساب گوگل خود شوید." };
+      }
     }
 
     return { success: true };

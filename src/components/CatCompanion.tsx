@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { getSystemTime, getLocalYYYYMMDD, getSessionLocalYYYYMMDD } from "../utils/time";
 import {
   Sparkles,
   Heart,
@@ -90,9 +91,29 @@ export default function CatCompanion() {
   // Position and Physics States
   const [catPos, setCatPos] = useState({ x: window.innerWidth - 180, y: window.innerHeight - 150 });
   const [targetX, setTargetX] = useState<number | null>(null);
+  const [targetY, setTargetY] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [facingLeft, setFacingLeft] = useState<boolean>(true);
   const [isFocusing, setIsFocusing] = useState<boolean>(false);
+  const [laserActive, setLaserActive] = useState<boolean>(false);
+  const [laserPos, setLaserPos] = useState({ x: 0, y: 0 });
+  const [ownerName, setOwnerName] = useState<string>(() => {
+    return localStorage.getItem("focus_username") || "Mahan";
+  });
+
+  useEffect(() => {
+    const syncUser = () => {
+      const u = localStorage.getItem("focus_username") || "Mahan";
+      setOwnerName(u);
+    };
+    syncUser();
+    window.addEventListener("storage", syncUser);
+    const interval = setInterval(syncUser, 3000);
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Refs for animation loop
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -102,10 +123,13 @@ export default function CatCompanion() {
   const particlesRef = useRef<PixelParticle[]>([]);
   const lastXpGainRef = useRef<number>(Date.now());
   const mousePosRef = useRef({ x: 0, y: 0 });
+  const vxRef = useRef<number>(0); // Horizontal physical velocity for momentum drops
+  const vyRef = useRef<number>(0); // Vertical physical velocity for gravity drops
 
   // Refs to avoid setInterval restart
   const catPosRef = useRef(catPos);
   const targetXRef = useRef(targetX);
+  const targetYRef = useRef(targetY);
   const animationStateRef = useRef(animationState);
   const energyRef = useRef(energy);
   const nameRef = useRef(name);
@@ -117,6 +141,10 @@ export default function CatCompanion() {
   useEffect(() => {
     targetXRef.current = targetX;
   }, [targetX]);
+
+  useEffect(() => {
+    targetYRef.current = targetY;
+  }, [targetY]);
 
   useEffect(() => {
     animationStateRef.current = animationState;
@@ -241,6 +269,88 @@ export default function CatCompanion() {
     }, duration);
   };
 
+  // Advanced dynamic bio-rhythm and study behavioral thought generator
+  const generateDynamicThought = () => {
+    // 1. Check critical needs first
+    if (hunger < 35) {
+      const hungerThoughts = [
+        `🐟 Zeytoon is so hungry, ${ownerName}! Can you get me some yummy fish? 😿`,
+        `🐟 Meow... My tummy is rumbling, ${ownerName}! Could I have some fish, please?`,
+        `🍪 Dear ${ownerName}, Zeytoon wants some cat food! My tummy is rumbling.`,
+        `🐟 Zeytoon wants fish, ${ownerName}! My energy and fullness levels are dropping.`
+      ];
+      return hungerThoughts[Math.floor(Math.random() * hungerThoughts.length)];
+    }
+    if (energy < 35) {
+      const energyThoughts = [
+        `💤 I'm feeling so lazy and tired, ${ownerName}... time for a short cat nap? 😴`,
+        `💤 Zeytoon is running low on battery, ${ownerName}! Time for a nap?`,
+        `☕ Maybe it's time for a cup of coffee or green tea, ${ownerName}!`,
+        `💤 *Yawns*... Let's take a short wellness break to recharge, ${ownerName}.`
+      ];
+      return energyThoughts[Math.floor(Math.random() * energyThoughts.length)];
+    }
+    if (love < 35) {
+      const loveThoughts = [
+        `💖 Zeytoon is feeling a bit lonely... ${ownerName}, can you pet me? 🐾`,
+        `💖 I'm feeling a bit neglected, ${ownerName}! Pet me for a quick love boost!`,
+        `🐾 Meow... Give Zeytoon a little hug or click to play, ${ownerName}!`,
+        `💖 Oh yes! Pet me a bit, dear ${ownerName}, so I can purr with love for you!`
+      ];
+      return loveThoughts[Math.floor(Math.random() * loveThoughts.length)];
+    }
+
+    // 2. Time-of-day thoughts
+    const hour = getSystemTime().getHours();
+    if (hour >= 0 && hour < 5) {
+      const nightThoughts = [
+        `🌌 Still awake, ${ownerName}? Don't forget that good sleep does wonders for your brain! 🛌`,
+        `🍵 Still studying, ${ownerName}? Here's a virtual cup of chamomile tea. Sleep soon!`,
+        `🦉 We are night owl legends, ${ownerName}! But don't push your limits too hard.`,
+        `✨ The stars are shining... Working in the silence of the night with ${ownerName} is sweet, but don't overdo it!`
+      ];
+      return nightThoughts[Math.floor(Math.random() * nightThoughts.length)];
+    }
+    if (hour >= 5 && hour < 11) {
+      const morningThoughts = [
+        `🌞 Good morning, champion ${ownerName}! The sun shines as bright and orange as Zeytoon's fur!`,
+        `🌅 Good morning, champion ${ownerName}! Let's conquer our daily focus goal!`,
+        `🍊 A perfect morning starts with a perfect focus, dear ${ownerName}. Get up and stretch your body!`,
+        `🍵 Have you had your breakfast yet, ${ownerName}? Fuel your brain first!`
+      ];
+      return morningThoughts[Math.floor(Math.random() * morningThoughts.length)];
+    }
+    if (hour >= 11 && hour < 17) {
+      const afternoonThoughts = [
+        `💧 Don't forget to drink water, ${ownerName}! Staying hydrated boosts focus. 🥛`,
+        `👀 20-20-20 rule: Every 20 minutes, look at something 20 feet away for 20 seconds, dear ${ownerName}, so your eyes don't get tired!`,
+        `🧘‍♂️ Straighten your back, my friend ${ownerName}! Roll your shoulders and take a deep breath.`,
+        `💤 Afternoon drowsiness? Let's do a breathing technique or walk around, ${ownerName}!`
+      ];
+      return afternoonThoughts[Math.floor(Math.random() * afternoonThoughts.length)];
+    }
+    if (hour >= 17 && hour < 24) {
+      const eveningThoughts = [
+        `🌅 Beautiful sunset, ${ownerName}... How is our progress? Your record today is amazing!`,
+        `✨ Winding down, ${ownerName}? Celebrate the focus blocks you completed today!`,
+        `🌟 You are wonderful, ${ownerName}! Zeytoon is so proud to have such a hardworking friend like you.`,
+        `📖 Let's plan tomorrow's tasks before going to bed, dear ${ownerName}!`
+      ];
+      return eveningThoughts[Math.floor(Math.random() * eveningThoughts.length)];
+    }
+
+    // Default general thoughts
+    const generalThoughts = [
+      `🐾 Purr... You can absolutely complete your study goals, ${ownerName}! I believe in you!`,
+      `🌸 You are studying so beautifully, ${ownerName}! Zeytoon is proud of you!`,
+      `👀 Watching you study, ${ownerName}! You have such incredible focus!`,
+      `✨ Zeytoon is always here to keep ${ownerName} motivated during study and work!`,
+      `📖 Studying with ${ownerName} is Zeytoon's absolute favorite thing!`,
+      `🐱 Orange cats are the most energetic co-workers in the world! Keep going strong, ${ownerName}!`
+    ];
+    return generalThoughts[Math.floor(Math.random() * generalThoughts.length)];
+  };
+
   // Persist levels and stats
   useEffect(() => {
     localStorage.setItem("zen_cat_name", name);
@@ -263,15 +373,15 @@ export default function CatCompanion() {
         (s: any) => s.completed && s.mode !== "shortBreak" && s.mode !== "longBreak"
       );
       const uniqueDates: string[] = Array.from(
-        new Set(completedSessions.map((s: any) => s.startTime.substring(0, 10)))
+        new Set(completedSessions.map((s: any) => getSessionLocalYYYYMMDD(s.startTime)))
       ).sort() as string[];
 
       if (uniqueDates.length === 0) return 0;
 
-      const todayStr = new Date().toISOString().substring(0, 10);
-      const yesterday = new Date();
+      const todayStr = getLocalYYYYMMDD(getSystemTime());
+      const yesterday = getSystemTime();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().substring(0, 10);
+      const yesterdayStr = getLocalYYYYMMDD(yesterday);
 
       const lastSessionDate = uniqueDates[uniqueDates.length - 1];
       if (lastSessionDate !== todayStr && lastSessionDate !== yesterdayStr) {
@@ -280,10 +390,10 @@ export default function CatCompanion() {
 
       let streakCount = 1;
       for (let i = uniqueDates.length - 2; i >= 0; i--) {
-        const current = new Date(uniqueDates[i + 1]);
-        const prev = new Date(uniqueDates[i]);
+        const current = new Date(uniqueDates[i + 1] + "T00:00:00");
+        const prev = new Date(uniqueDates[i] + "T00:00:00");
         const diffTime = Math.abs(current.getTime() - prev.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays === 1) {
           streakCount++;
@@ -302,12 +412,12 @@ export default function CatCompanion() {
     try {
       const saved = localStorage.getItem("focus_history");
       const sessions = saved ? JSON.parse(saved) : [];
-      const todayStr = new Date().toISOString().substring(0, 10);
+      const todayStr = getLocalYYYYMMDD(getSystemTime());
       const completedSessions = sessions.filter(
         (s: any) => s.completed && s.mode !== "shortBreak" && s.mode !== "longBreak"
       );
       const todaySessions = completedSessions.filter(
-        (s: any) => s.startTime.substring(0, 10) === todayStr
+        (s: any) => getSessionLocalYYYYMMDD(s.startTime) === todayStr
       );
       return todaySessions.reduce((acc: number, s: any) => acc + Math.round(s.duration / 60), 0);
     } catch (e) {
@@ -415,58 +525,61 @@ export default function CatCompanion() {
       const currentAnimState = animationStateRef.current;
       const currentEnergy = energyRef.current;
 
-      // Only trigger random movement if not busy eating/sleeping
+      // Only trigger random behavior if not busy eating or deep sleeping
       if (currentAnimState !== "sleep" && currentAnimState !== "eat") {
-        if (rand < 0.25) {
-          // Choose new walking target
-          const newTarget = Math.floor(50 + Math.random() * (window.innerWidth - 200));
-          setTargetX(newTarget);
+        // High frequency walking! (40% chance of walking every 6 seconds to feel highly alive)
+        if (rand < 0.40) {
+          // Choose new walking target spanning the entire window width and height safely
+          const safetyMarginX = 180;
+          const safetyMarginY = 150;
+          const maxTargetX = Math.max(100, window.innerWidth - safetyMarginX);
+          const maxTargetY = Math.max(100, window.innerHeight - safetyMarginY);
+          const newTargetX = Math.floor(20 + Math.random() * (maxTargetX - 20));
+          const newTargetY = Math.floor(20 + Math.random() * (maxTargetY - 20));
+          setTargetX(newTargetX);
+          setTargetY(newTargetY);
           setAnimationState("walk");
-        } else if (rand < 0.40) {
-          // Curl up and rest
-          setAnimationState("sit");
-          if (Math.random() < 0.35) {
-            const idleThoughts = [
-              "🐾 Purr... You can absolutely complete your study goals! I believe in you!",
-              "🌸 Meow! Let's stay focused and get this work done together!",
-              "🐭 Seen any mice? Zeytoon is looking for some snacks!",
-              "👀 Watching you study! You have such incredible focus!",
-              "💤 Sleepy... Zeytoon is feeling a tiny bit cozy and drowsy.",
-              "✨ Zeytoon is always here supporting you in your workspace!",
-              "🍵 Remember to take a sip of water and keep your mind fresh!",
-              "📖 Studying with you is Zeytoon's absolute favorite thing!",
-              "🍊 I am just a lucky little orange cat spreading happy vibes!",
-              "🌟 Make today the most productive day ever for yourself!",
-              "⚡️ Did we start the focus timer yet, study buddy?",
-              "🎵 These relaxing lofi beats are perfect for reading and studying!",
-              "🐱 Orange cats are the sweetest companions. Let's stay focused!"
+          
+          if (Math.random() < 0.40) {
+            const walkThoughts = [
+              `🐾 Let's take a little stroll around your workspace, ${ownerName}! 🚶‍♂️`,
+              `✨ Zeytoon is patrolling your screen, ${ownerName}!`,
+              `🐾 Just walking around to stretch my paws, you should also stand up and move, ${ownerName}!`,
+              `🍊 What a lovely workspace you have! I'm just wandering from side to side.`
             ];
-            showThought(idleThoughts[Math.floor(Math.random() * idleThoughts.length)]);
+            showThought(walkThoughts[Math.floor(Math.random() * walkThoughts.length)]);
+          }
+        } else if (rand < 0.55) {
+          // Curl up and sit / purr
+          setAnimationState("sit");
+          if (Math.random() < 0.50) {
+            const thought = generateDynamicThought();
+            showThought(thought);
             playChirpSound("purr");
           }
-        } else if (rand < 0.50 && currentEnergy < 60) {
-          // Go to sleep if tired
+        } else if (rand < 0.65 && currentEnergy < 55) {
+          // Nap if tired
           setAnimationState("sleep");
-          showThought("💤 Zeytoon is getting sleepy... Nap time!");
-        } else if (rand < 0.58) {
-          // Waving
+          showThought(`💤 Zeytoon is tired... I'll take a quick cat nap, dear ${ownerName}! 😴`);
+        } else if (rand < 0.75) {
+          // Cute wave paw
           setAnimationState("wave");
-          showThought("👋 Hello friend! Zeytoon is right here!");
+          showThought(`👋 How are you, champion ${ownerName}? Great job today, my friend! 😻`);
           playChirpSound("meow");
           setTimeout(() => setAnimationState("idle"), 2500);
-        } else if (rand < 0.65) {
-          // Curious tilt
+        } else if (rand < 0.85) {
+          // Cute head tilt
           setAnimationState("tilt");
-          showThought("🧐 What are we working on right now, my friend?");
+          showThought(`🧐 What are you working on, ${ownerName}? Your project is going great!`);
           setTimeout(() => setAnimationState("idle"), 2000);
-        } else if (rand < 0.70) {
-          // Stretch
+        } else if (rand < 0.95) {
+          // Stretch paws
           setAnimationState("stretch");
-          showThought("🧘‍♂️ Stretching out my paws! Stay active too!");
+          showThought(`🧘‍♂️ Mmm... what a satisfying stretch! Straighten your back too, ${ownerName}.`);
           setTimeout(() => setAnimationState("idle"), 3000);
         }
       }
-    }, 12000); // dialogue frequency increased slightly from 15000 to 12000
+    }, 45000); // 45 seconds cycle keeps Zeytoon active without being annoying
 
     // Initial warm greeting meow
     setTimeout(() => {
@@ -480,14 +593,46 @@ export default function CatCompanion() {
     };
   }, [isActive, isDragging, isFocusing]);
 
-  // Track Mouse movement relative to the cat for eyes to look at
+  // Track Mouse movement relative to the cat for eyes to look at & Laser Chase logic
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
+
+      if (laserActive) {
+        setLaserPos({ x: e.clientX, y: e.clientY });
+        setTargetX(e.clientX - 64);
+        setTargetY(e.clientY - 64);
+        if (animationStateRef.current !== "walk") {
+          setAnimationState("walk");
+        }
+
+        // Pounce check: if cat's center is close to the laser dot
+        const catCenterX = catPosRef.current.x + 64;
+        const catCenterY = catPosRef.current.y + 64;
+        const dx = e.clientX - catCenterX;
+        const dy = e.clientY - catCenterY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 32) {
+          // Got it!
+          setLaserActive(false);
+          setTargetX(null);
+          setAnimationState("pet"); // Happy bounce!
+          playChirpSound("meow");
+          gainXp(30);
+          setLove((l) => Math.min(100, l + 15));
+          showThought("🔴 گرفتمش! گرفتمش! بالاخره لیزر رو شکار کردم! 😻");
+
+          // Spawn star/sparkle particles
+          for (let i = 0; i < 12; i++) {
+            spawnParticle(16, 16, "sparkle");
+          }
+        }
+      }
     };
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+  }, [laserActive]);
 
   // Gain XP Function
   const gainXp = (amount: number) => {
@@ -542,48 +687,113 @@ export default function CatCompanion() {
     particlesRef.current.push(newP);
   };
 
-  // Movement Physics loop
+  // Movement and Gravity Physics loop
   useEffect(() => {
     if (!isActive) return;
 
     let lastTime = Date.now();
     const updatePhysics = () => {
-      if (isDragging) return;
-
       const now = Date.now();
-      const dt = (now - lastTime) / 1000;
+      const dt = Math.min(0.1, (now - lastTime) / 1000); // Clamp dt to prevent massive jumps on tab reactivations
       lastTime = now;
+
+      if (isDragging) {
+        vxRef.current = 0;
+        vyRef.current = 0;
+        return;
+      }
 
       const currentTargetX = targetXRef.current;
       const currentAnimState = animationStateRef.current;
       const currentPos = catPosRef.current;
 
-      // Handle Walking Target
-      if (currentTargetX !== null && currentAnimState === "walk") {
-        const dx = currentTargetX - currentPos.x;
-        const absDx = Math.abs(dx);
-        const speed = 45; // pixels per second
+      let nextX = currentPos.x;
+      let nextY = currentPos.y;
 
-        if (absDx < 4) {
-          setCatPos({ x: currentTargetX, y: currentPos.y });
+      const maxX = Math.max(50, window.innerWidth - 180);
+      const maxY = Math.max(50, window.innerHeight - 150);
+
+      // 1. Momentum & sliding deceleration after a throw
+      if (Math.abs(vxRef.current) > 10 || Math.abs(vyRef.current) > 10) {
+        nextX += vxRef.current * dt;
+        nextY += vyRef.current * dt;
+
+        // Apply friction decay
+        vxRef.current *= Math.exp(-4 * dt);
+        vyRef.current *= Math.exp(-4 * dt);
+
+        // Bouncing logic on screen edges
+        if (nextX <= 20) {
+          nextX = 20;
+          vxRef.current = -vxRef.current * 0.4;
+        } else if (nextX >= maxX) {
+          nextX = maxX;
+          vxRef.current = -vxRef.current * 0.4;
+        }
+
+        if (nextY <= 20) {
+          nextY = 20;
+          vyRef.current = -vyRef.current * 0.4;
+        } else if (nextY >= maxY) {
+          nextY = maxY;
+          vyRef.current = -vyRef.current * 0.4;
+        }
+
+        // Tilt slightly while sliding fast
+        if ((Math.abs(vxRef.current) > 100 || Math.abs(vyRef.current) > 100) && animationStateRef.current !== "tilt" && animationStateRef.current !== "pet" && animationStateRef.current !== "sleep") {
+          setAnimationState("tilt");
+        }
+
+        // Stop completely
+        if (Math.abs(vxRef.current) <= 10 && Math.abs(vyRef.current) <= 10) {
+          vxRef.current = 0;
+          vyRef.current = 0;
+          setAnimationState("idle");
+          for (let i = 0; i < 8; i++) {
+            spawnParticle(64, 110, "dust");
+          }
+        }
+      }
+
+      // 2. Walking/Chasing Target
+      if (currentTargetX !== null && currentAnimState === "walk") {
+        const currentTargetY = targetYRef.current !== null ? targetYRef.current : currentPos.y;
+        const dx = currentTargetX - currentPos.x;
+        const dy = currentTargetY - currentPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const speed = laserActive ? 180 : 55; // Much faster when chasing a laser pointer!
+
+        if (dist < 4) {
+          nextX = currentTargetX;
+          nextY = currentTargetY;
           setTargetX(null);
+          setTargetY(null);
           setAnimationState("idle");
         } else {
           setFacingLeft(dx < 0);
-          const step = Math.sign(dx) * speed * dt;
-          setCatPos({ x: currentPos.x + step, y: currentPos.y });
+          nextX = currentPos.x + (dx / dist) * speed * dt;
+          nextY = currentPos.y + (dy / dist) * speed * dt;
 
-          // Spawn occasional walking dust
+          // Spawn walking dust occasionally
           if (ticksRef.current % 12 === 0) {
             spawnParticle(64, 110, "dust");
           }
         }
       }
+
+      // Safe bounds clamping
+      nextX = Math.max(20, Math.min(maxX, nextX));
+      nextY = Math.max(20, Math.min(maxY, nextY));
+
+      // Update state if anything changed
+      if (nextX !== currentPos.x || nextY !== currentPos.y) {
+        setCatPos({ x: nextX, y: nextY });
+      }
     };
 
-    const interval = setInterval(updatePhysics, 30);
+    const interval = setInterval(updatePhysics, 25);
     return () => clearInterval(interval);
-  }, [isActive, isDragging]);
+  }, [isActive, isDragging, laserActive]);
 
   // Main Canvas Render Loop (60 FPS Procedural Pixel Art Drawing)
   useEffect(() => {
@@ -758,48 +968,52 @@ export default function CatCompanion() {
       drawRect(tailX - 3 + wagOffset, tailBaseY - 8, 2, 3, CREAM); // Cream tail tip!
       drawRect(tailX - 1 + wagOffset, tailBaseY - 9, 1, 1, CREAM);
 
+      // Compute dynamic body bottom positions early for accurate legs attachment
+      const bodyY = 16 + Math.round(walkBob) + Math.round(bodyH);
+      const bH = 10 + Math.round(breathY);
+
       // Draw Legs
       const legY = 25;
       const stepOffset = ticks % 16 < 8 ? 1 : 0;
 
       if (animationState === "sleep") {
-        // Tuck legs fully in sleeping position
-        drawHLine(10, 21, 26, OUTLINE);
-        drawHLine(11, 20, 25, ORANGE_SHADOW);
+        // Tuck legs fully in sleeping position without any gaps
+        drawHLine(10, 21, bodyY + bH + 1, OUTLINE);
+        drawHLine(11, 20, bodyY + bH, ORANGE_SHADOW);
       } else if (animationState === "sit") {
-        // Sitting legs flat
-        drawHLine(11, 21, 26, OUTLINE);
-        drawHLine(12, 14, 25, CREAM);
-        drawHLine(17, 20, 25, BASE_ORANGE);
+        // Sitting legs flat and connected
+        drawHLine(11, 21, bodyY + bH + 1, OUTLINE);
+        drawHLine(12, 14, bodyY + bH, CREAM);
+        drawHLine(17, 20, bodyY + bH, BASE_ORANGE);
       } else if (animationState === "walk") {
-        // Alternate walk frame legs
-        if (stepOffset === 1) {
-          // Leg 1 down, Leg 2 up
-          drawRect(12, legY, 2, 3, OUTLINE);
-          drawRect(12, legY, 1, 2, CREAM); // front
-          
-          drawRect(15, legY - 1, 2, 3, OUTLINE);
-          drawRect(15, legY - 1, 1, 2, ORANGE_SHADOW);
-          
-          drawRect(18, legY, 2, 3, OUTLINE);
-          drawRect(18, legY, 1, 2, BASE_ORANGE); // rear
-          
-          drawRect(21, legY - 1, 2, 3, OUTLINE);
-          drawRect(21, legY - 1, 1, 2, ORANGE_SHADOW);
-        } else {
-          // Leg 1 up, Leg 2 down
-          drawRect(12, legY - 1, 2, 3, OUTLINE);
-          drawRect(12, legY - 1, 1, 2, CREAM);
-          
-          drawRect(15, legY, 2, 3, OUTLINE);
-          drawRect(15, legY, 1, 2, ORANGE_SHADOW);
-          
-          drawRect(18, legY - 1, 2, 3, OUTLINE);
-          drawRect(18, legY - 1, 1, 2, BASE_ORANGE);
-          
-          drawRect(21, legY, 2, 3, OUTLINE);
-          drawRect(21, legY, 1, 2, ORANGE_SHADOW);
-        }
+        // High-fidelity smooth dynamic leg swing!
+        // We use a continuous sine wave based on ticks to make the legs swing forward/backward and bend up/down
+        const swing = Math.sin(ticks * 0.45);
+        const swingAbs = Math.abs(swing);
+        
+        // Leg 1 (Front Left) - Cream
+        const leg1X = 12 + Math.round(swing * 2);
+        const leg1Y = legY - (swing > 0 ? Math.round(swingAbs * 1.5) : 0);
+        drawRect(leg1X, leg1Y, 2, 3, OUTLINE);
+        drawRect(leg1X, leg1Y, 1, 2, CREAM);
+        
+        // Leg 2 (Front Right) - Orange Shadow
+        const leg2X = 15 - Math.round(swing * 2);
+        const leg2Y = legY - (swing < 0 ? Math.round(swingAbs * 1.5) : 0);
+        drawRect(leg2X, leg2Y, 2, 3, OUTLINE);
+        drawRect(leg2X, leg2Y, 1, 2, ORANGE_SHADOW);
+        
+        // Leg 3 (Back Left) - Base Orange
+        const leg3X = 18 - Math.round(swing * 1.8);
+        const leg3Y = legY - (swing < 0 ? Math.round(swingAbs * 1.5) : 0);
+        drawRect(leg3X, leg3Y, 2, 3, OUTLINE);
+        drawRect(leg3X, leg3Y, 1, 2, BASE_ORANGE);
+        
+        // Leg 4 (Back Right) - Orange Shadow
+        const leg4X = 21 + Math.round(swing * 1.8);
+        const leg4Y = legY - (swing > 0 ? Math.round(swingAbs * 1.5) : 0);
+        drawRect(leg4X, leg4Y, 2, 3, OUTLINE);
+        drawRect(leg4X, leg4Y, 1, 2, ORANGE_SHADOW);
       } else if (animationState === "wave" && ticks % 12 < 6) {
         // Wave paw! Lifts front left paw
         drawRect(12, legY - 3, 3, 3, OUTLINE);
@@ -826,9 +1040,6 @@ export default function CatCompanion() {
       }
 
       // Draw Body
-      const bodyY = 16 + Math.round(walkBob) + Math.round(bodyH);
-      const bH = 10 + Math.round(breathY);
-
       // Body Outline
       drawRect(9, bodyY, 14, bH, OUTLINE);
       // Body Orange base
@@ -880,50 +1091,47 @@ export default function CatCompanion() {
       drawPixel(headX + 9, headBaseY + 7, PINK);
 
       // Eyes positioning & mouse tracking
-      const leftEyeBaseX = headX + 3;
-      const rightEyeBaseX = headX + 8;
-      const eyeY = headBaseY + 4;
+      const leftEyeBaseX = headX + 2;
+      const rightEyeBaseX = headX + 7;
+      const eyeY = headBaseY + 3; // rows 3, 4, 5
 
       // Calculate pupillary offset based on mouse location
       const catCenterX = catPos.x + 64;
       const catCenterY = catPos.y + 64;
       const dx = mousePosRef.current.x - catCenterX;
       const dy = mousePosRef.current.y - catCenterY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
       
       let lookX = 0;
       let lookY = 0;
-      if (dist > 30 && animationState !== "sleep") {
-        lookX = Math.round((dx / dist) * 0.7);
-        lookY = Math.round((dy / dist) * 0.5);
+      if (animationState !== "sleep") {
+        lookX = Math.abs(dx) > 20 ? Math.sign(dx) : 0;
+        lookY = Math.abs(dy) > 20 ? Math.sign(dy) : 0;
       }
 
       if (eyeClosed) {
-        // Blink / Sleep eyes: flat lines
-        drawHLine(leftEyeBaseX - 1, leftEyeBaseX + 1, eyeY, OUTLINE);
-        drawHLine(rightEyeBaseX - 1, rightEyeBaseX + 1, eyeY, OUTLINE);
+        // Blink / Sleep eyes: flat lines (3 pixels wide)
+        drawHLine(leftEyeBaseX, leftEyeBaseX + 2, eyeY + 1, OUTLINE);
+        drawHLine(rightEyeBaseX, rightEyeBaseX + 2, eyeY + 1, OUTLINE);
       } else if (animationState === "pet") {
-        // Happy squinting curves ( ^ ^ )
-        drawPixel(leftEyeBaseX - 1, eyeY + 1, OUTLINE);
-        drawPixel(leftEyeBaseX, eyeY, OUTLINE);
-        drawPixel(leftEyeBaseX + 1, eyeY + 1, OUTLINE);
+        // Happy squinting curves ( ^ ^ ) over 3 pixels wide
+        drawPixel(leftEyeBaseX, eyeY + 1, OUTLINE);
+        drawPixel(leftEyeBaseX + 1, eyeY, OUTLINE);
+        drawPixel(leftEyeBaseX + 2, eyeY + 1, OUTLINE);
 
-        drawPixel(rightEyeBaseX - 1, eyeY + 1, OUTLINE);
-        drawPixel(rightEyeBaseX, eyeY, OUTLINE);
-        drawPixel(rightEyeBaseX + 1, eyeY + 1, OUTLINE);
+        drawPixel(rightEyeBaseX, eyeY + 1, OUTLINE);
+        drawPixel(rightEyeBaseX + 1, eyeY, OUTLINE);
+        drawPixel(rightEyeBaseX + 2, eyeY + 1, OUTLINE);
       } else {
-        // Expressive large Game Boy style yellow/amber oval eyes
-        // Left Eye
-        drawRect(leftEyeBaseX + lookX, eyeY + lookY - 1, 2, 3, OUTLINE);
-        drawRect(leftEyeBaseX + lookX, eyeY + lookY - 1, 2, 3, "#EAB308"); // Amber/yellow base
-        drawPixel(leftEyeBaseX + lookX + 1, eyeY + lookY, "#111827"); // Black pupil
-        drawPixel(leftEyeBaseX + lookX, eyeY + lookY - 1, "#FFFFFF"); // White shiny glint
+        // Expressive large, beautiful 3x3 yellow/amber cat eyes
+        // Left Eye (3x3)
+        drawRect(leftEyeBaseX + lookX, eyeY + lookY, 3, 3, "#EAB308"); // Golden Amber
+        drawRect(leftEyeBaseX + lookX + 1, eyeY + lookY + 1, 1, 2, "#111827"); // Vertical slit black pupil
+        drawPixel(leftEyeBaseX + lookX, eyeY + lookY, "#FFFFFF"); // Shiny white glint (top-left)
 
-        // Right Eye
-        drawRect(rightEyeBaseX + lookX, eyeY + lookY - 1, 2, 3, OUTLINE);
-        drawRect(rightEyeBaseX + lookX, eyeY + lookY - 1, 2, 3, "#EAB308"); // Amber/yellow base
-        drawPixel(rightEyeBaseX + lookX, eyeY + lookY, "#111827"); // Black pupil
-        drawPixel(rightEyeBaseX + lookX + 1, eyeY + lookY - 1, "#FFFFFF"); // White shiny glint
+        // Right Eye (3x3)
+        drawRect(rightEyeBaseX + lookX, eyeY + lookY, 3, 3, "#EAB308"); // Golden Amber
+        drawRect(rightEyeBaseX + lookX + 1, eyeY + lookY + 1, 1, 2, "#111827"); // Vertical slit black pupil
+        drawPixel(rightEyeBaseX + lookX, eyeY + lookY, "#FFFFFF"); // Shiny white glint (top-left)
       }
 
       // Small pink nose
@@ -1138,9 +1346,25 @@ export default function CatCompanion() {
         dragMomentum={true}
         dragElastic={0.06}
         dragTransition={{ power: 0.08, timeConstant: 200 }}
-        onDragStart={() => setIsDragging(true)}
-        onDragEnd={() => setTimeout(() => setIsDragging(false), 100)}
-        style={{ x: catPos.x, y: catPos.y }}
+        onDragStart={() => {
+          setIsDragging(true);
+          setTargetX(null); // Stop any walking target
+          setTargetY(null);
+          vxRef.current = 0;
+          vyRef.current = 0; // Reset momentum velocity
+        }}
+        onDrag={(event, info) => {
+          setCatPos((prev) => ({
+            x: prev.x + info.delta.x,
+            y: prev.y + info.delta.y
+          }));
+        }}
+        onDragEnd={(event, info) => {
+          setIsDragging(false);
+          vxRef.current = info.velocity.x; // Capture physical throw velocity!
+          vyRef.current = info.velocity.y;
+        }}
+        style={{ left: 0, top: 0, x: catPos.x, y: catPos.y }}
         className="fixed z-[99] touch-none select-none cursor-grab active:cursor-grabbing group/cat flex flex-col items-center"
       >
         {/* SPEECH BUBBLE thought */}
@@ -1176,40 +1400,50 @@ export default function CatCompanion() {
         />
       </motion.div>
 
-      {/* ULTRA-PREMIUM HOLOGRAPHIC COMPANION DASHBOARD */}
+      {/* MINIMAL HOLOGRAPHIC COMPANION DASHBOARD */}
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            onClick={() => setIsOpen(false)}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.93, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-[#09090b]/95 backdrop-blur-2xl border border-orange-500/20 rounded-3xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(249,115,22,0.15)] font-sans relative overflow-hidden"
+              exit={{ opacity: 0, scale: 0.93, y: 15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-neutral-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl font-sans relative overflow-hidden text-white"
             >
-              {/* Starry ambient orange/violet background gradient glow */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.15)_0%,rgba(124,58,237,0.08)_50%,transparent_100%)] pointer-events-none" />
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-orange-500/30 to-transparent" />
+              {/* Neutral background gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
 
               {/* Title Header */}
-              <div className="flex items-center justify-between mb-5 border-b border-white/10 pb-3 relative z-10">
+              <div className="flex items-center justify-between mb-4 relative z-10">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping absolute" />
-                  <div className="w-2 h-2 rounded-full bg-orange-500 relative" />
-                  <h3 className="text-[11px] font-bold text-orange-400 tracking-widest uppercase font-mono">
-                    Zeytoon Companion HUD
-                  </h3>
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] font-bold text-gray-300 tracking-wider uppercase font-mono">
+                    Companion Active
+                  </span>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-all duration-200 cursor-pointer"
+                  className="text-white/40 hover:text-white p-1.5 hover:bg-white/10 rounded-full transition-all duration-200 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Name & Study Streak Level Badge */}
-              <div className="bg-orange-500/[0.02] border border-orange-500/15 rounded-2xl p-4 space-y-3 mb-4 relative z-10 shadow-inner">
-                <div className="flex items-center justify-between">
+              {/* Minimal Main Information */}
+              <div className="flex flex-col items-center text-center pt-2 pb-4 relative z-10 border-b border-white/5">
+                <div className="relative mb-3">
+                  <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex flex-col items-center justify-center relative shadow-inner">
+                    <span className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-wider">Level</span>
+                    <span className="text-3xl font-bold text-white font-mono">{level}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 justify-center">
                   {isEditingName ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -1217,140 +1451,126 @@ export default function CatCompanion() {
                         value={nameInput}
                         onChange={(e) => setNameInput(e.target.value)}
                         maxLength={12}
-                        className="bg-neutral-900 border border-orange-500/30 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-orange-500 w-28"
+                        className="bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-orange-500 w-24 text-center font-bold"
                       />
                       <button
                         onClick={handleNameSave}
-                        className="bg-orange-600 hover:bg-orange-500 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-200"
+                        className="bg-white text-black hover:bg-neutral-200 font-bold text-[10px] px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-200"
                       >
                         Save
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5">
-                      <h4 className="text-base font-bold text-white tracking-tight">{name}</h4>
+                      <h4 className="text-lg font-bold text-white tracking-tight">{name}</h4>
                       <button
                         onClick={() => {
                           setNameInput(name);
                           setIsEditingName(true);
                         }}
-                        className="text-gray-500 hover:text-orange-400 transition-colors duration-200 cursor-pointer"
-                        title="Edit Companion Name"
+                        className="text-white/40 hover:text-orange-400 transition-colors duration-200 cursor-pointer"
+                        title="Edit Name"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="w-3 h-3" />
                       </button>
                     </div>
                   )}
-
-                  {/* Level tied directly to focus streak! */}
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-full text-[10px] font-mono font-bold tracking-tight shadow-[0_0_10px_rgba(249,115,22,0.1)]">
-                    <Award className="w-3.5 h-3.5" />
-                    STREAK LVL {level}
-                  </span>
                 </div>
+                <p className="text-[11px] text-white/50 font-mono tracking-widest uppercase mt-0.5">Zeytoon's Hub</p>
 
-                {/* Focus Timer Goal Progress Bar */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[9px] font-mono text-gray-400">
-                    <span className="tracking-wider">TODAY'S STUDY SESSION</span>
+                {/* Focus Timer Goal Progress Bar (Looks like weather precipitation/UV progress!) */}
+                <div className="w-full mt-4 bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl p-3 flex flex-col gap-1 text-left">
+                  <div className="flex justify-between items-center text-[10px] font-mono text-white/60">
+                    <span className="tracking-wider uppercase flex items-center gap-1">
+                      <Award className="w-3 h-3 text-orange-400" />
+                      DAILY STUDY GOAL
+                    </span>
                     <span className="text-orange-400 font-bold">
-                      {xp} / 50 MINS GOAL
+                      {xp} / 50 MINS
                     </span>
                   </div>
-                  <div className="h-3 w-full bg-black/60 border border-white/5 rounded-full overflow-hidden p-0.5 shadow-inner">
+                  <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden p-0.5 mt-1">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, (xp / 50) * 100)}%` }}
                       className="h-full bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-400 rounded-full relative"
                     >
-                      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.15)_50%,transparent_100%)] animate-[pulse_1.5s_infinite]" />
+                      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)] animate-[pulse_1.5s_infinite]" />
                     </motion.div>
                   </div>
+                  <p className="text-[9px] text-white/40 text-center mt-1">
+                    Zeytoon's level increases directly with {ownerName}'s focus time!
+                  </p>
                 </div>
               </div>
 
-              {/* STATUS METERS with Dynamic Warnings */}
-              <div className="grid grid-cols-3 gap-2.5 mb-4 relative z-10">
-                {/* Hunger Meter */}
-                <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-2.5 text-center relative overflow-hidden shadow-inner group">
-                  <div className={`absolute inset-0 bg-gradient-to-t ${hunger < 30 ? "from-red-500/10" : "from-orange-500/5"} to-transparent pointer-events-none`} />
-                  <div className="flex items-center justify-between px-0.5">
-                    <span className="text-[8px] font-bold text-gray-400 font-mono uppercase">Hunger</span>
-                    {hunger < 30 && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                    )}
-                  </div>
-                  <p className={`text-sm font-black font-mono mt-0.5 ${hunger < 30 ? "text-red-400" : "text-white"}`}>{hunger}%</p>
+              {/* STATS GRID - Looking like the weather app's Grid details (Humidity, Wind, Air Quality) */}
+              <div className="grid grid-cols-3 gap-2 my-4 relative z-10">
+                {/* Hunger Card */}
+                <div className="bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center hover:bg-white/10 transition-all duration-200">
+                  <Cookie className={`w-5 h-5 mb-1 ${hunger < 35 ? "text-red-400 animate-bounce" : "text-amber-400"}`} />
+                  <span className="text-[8px] text-white/60 uppercase tracking-wider font-semibold">HUNGER</span>
+                  <span className="text-xs font-bold font-mono mt-0.5">{hunger}%</span>
                   <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden mt-1.5">
                     <div
-                      className={`h-full transition-all duration-300 rounded-full ${hunger < 30 ? "bg-red-500 animate-pulse" : hunger < 70 ? "bg-amber-500" : "bg-orange-500"}`}
+                      className={`h-full rounded-full ${hunger < 35 ? "bg-red-500 animate-pulse" : hunger < 75 ? "bg-amber-500" : "bg-emerald-500"}`}
                       style={{ width: `${hunger}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Affection Meter */}
-                <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-2.5 text-center relative overflow-hidden shadow-inner">
-                  <div className={`absolute inset-0 bg-gradient-to-t ${love < 30 ? "from-red-500/10" : "from-rose-500/5"} to-transparent pointer-events-none`} />
-                  <div className="flex items-center justify-between px-0.5">
-                    <span className="text-[8px] font-bold text-gray-400 font-mono uppercase">Affection</span>
-                    {love < 30 && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
-                    )}
-                  </div>
-                  <p className={`text-sm font-black font-mono mt-0.5 ${love < 30 ? "text-red-400" : "text-white"}`}>{love}%</p>
+                {/* Affection Card */}
+                <div className="bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center hover:bg-white/10 transition-all duration-200">
+                  <Heart className={`w-5 h-5 mb-1 ${love < 35 ? "text-rose-400 animate-pulse" : "text-rose-400"}`} />
+                  <span className="text-[8px] text-white/60 uppercase tracking-wider font-semibold">AFFECTION</span>
+                  <span className="text-xs font-bold font-mono mt-0.5">{love}%</span>
                   <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden mt-1.5">
                     <div
-                      className={`h-full transition-all duration-300 rounded-full ${love < 30 ? "bg-red-500 animate-pulse" : "bg-rose-500"}`}
+                      className={`h-full rounded-full ${love < 35 ? "bg-red-500 animate-pulse" : love < 75 ? "bg-amber-500" : "bg-emerald-500"}`}
                       style={{ width: `${love}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Energy Meter */}
-                <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-2.5 text-center relative overflow-hidden shadow-inner">
-                  <div className={`absolute inset-0 bg-gradient-to-t ${energy < 30 ? "from-red-500/10" : "from-emerald-500/5"} to-transparent pointer-events-none`} />
-                  <div className="flex items-center justify-between px-0.5">
-                    <span className="text-[8px] font-bold text-gray-400 font-mono uppercase">Energy</span>
-                    {energy < 30 && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                    )}
-                  </div>
-                  <p className={`text-sm font-black font-mono mt-0.5 ${energy < 30 ? "text-red-400" : "text-white"}`}>{energy}%</p>
+                {/* Energy Card */}
+                <div className="bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center hover:bg-white/10 transition-all duration-200">
+                  <Moon className={`w-5 h-5 mb-1 ${energy < 35 ? "text-sky-400 animate-pulse" : "text-sky-400"}`} />
+                  <span className="text-[8px] text-white/60 uppercase tracking-wider font-semibold">ENERGY</span>
+                  <span className="text-xs font-bold font-mono mt-0.5">{energy}%</span>
                   <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden mt-1.5">
                     <div
-                      className={`h-full transition-all duration-300 rounded-full ${energy < 30 ? "bg-red-500 animate-pulse" : energy < 70 ? "bg-amber-500" : "bg-emerald-500"}`}
+                      className={`h-full rounded-full ${energy < 35 ? "bg-red-500 animate-pulse" : energy < 75 ? "bg-amber-500" : "bg-emerald-500"}`}
                       style={{ width: `${energy}%` }}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* ACTIONS CONTROL DOCK */}
+              {/* INTERACT CONTROL DOCK - Designed like smart widgets */}
               <div className="space-y-2 mb-4 relative z-10">
-                <h5 className="text-[9px] font-bold text-gray-400 uppercase tracking-widest font-mono">
-                  Interact Commands
-                </h5>
+                <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider font-mono block">
+                  Interactions
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={handleFeed}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-orange-500/10 border border-orange-500/20 text-orange-200 hover:bg-orange-500/20 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-white/5 border border-white/10 text-white hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
                   >
-                    <Cookie className="w-3.5 h-3.5" />
-                    <span>Feed Fish</span>
+                    <Cookie className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Feed Treat</span>
                   </button>
                   <button
                     onClick={handlePlay}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-orange-500/10 border border-orange-500/20 text-orange-200 hover:bg-orange-500/20 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-white/5 border border-white/10 text-white hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
-                    <span>Dance Beat</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow" />
+                    <span>Dance</span>
                   </button>
                   <button
                     onClick={handleSleepToggle}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-white/5 border border-white/10 text-white hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
                   >
-                    <Moon className="w-3.5 h-3.5 text-sky-400" />
+                    <Moon className="w-3.5 h-3.5 text-indigo-300" />
                     <span>{animationState === "sleep" ? "Wake Up" : "Put to Sleep"}</span>
                   </button>
                   <button
@@ -1358,28 +1578,50 @@ export default function CatCompanion() {
                       playChirpSound("purr");
                       setLove((l) => Math.min(100, l + 10));
                       gainXp(10);
-                      showThought("🐾 Mmm... Petting feels so warm!");
+                      showThought(`🐾 Oh yes! Thank you so much, dear ${ownerName}! 😻`);
                     }}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-white/5 border border-white/10 text-white hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98] rounded-xl text-xs font-medium transition-all cursor-pointer"
                   >
                     <Heart className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Pet Zeytoon</span>
+                    <span>Pet Cat</span>
+                  </button>
+
+                  {/* Premium Laser Chase Button */}
+                  <button
+                    onClick={() => {
+                      setLaserActive(!laserActive);
+                      if (!laserActive) {
+                        setIsOpen(false); // Close dashboard so the user can see the laser dot on screen!
+                        showThought(`🔴 Laser chase game started! Move your mouse and I'll chase it, dear ${ownerName}!`, 4500);
+                        playChirpSound("meow");
+                      } else {
+                        showThought("🔴 Laser game stopped.", 1500);
+                      }
+                    }}
+                    className={`col-span-2 flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-lg ${
+                      laserActive 
+                        ? "bg-red-500/20 border border-red-500/50 text-red-100 animate-pulse shadow-red-500/10" 
+                        : "bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20 hover:scale-[1.01]"
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444,0_0_15px_#ef4444] animate-ping" />
+                    <span>{laserActive ? "Stop Laser" : "Laser Chase"}</span>
                   </button>
                 </div>
               </div>
 
-              {/* ACCESSORIES CLOSET */}
+              {/* ACCESSORIES CLOSET - Designed like a weather app's daily checklist or forecast carousel */}
               <div className="space-y-2 border-t border-white/10 pt-4 relative z-10">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-[9px] font-bold text-gray-400 uppercase tracking-widest font-mono">
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider font-mono">
                     Hat Dressing Room
-                  </h5>
-                  <span className="text-[8px] text-gray-500 font-bold uppercase">
-                    Streak Level Unlocks
+                  </span>
+                  <span className="text-[8px] text-orange-400 font-bold uppercase font-mono">
+                    Unlock at streak levels
                   </span>
                 </div>
                 
-                <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar">
+                <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar scrollbar-none">
                   {ACCESSORIES.map((hat) => {
                     const isUnlocked = level >= hat.levelRequired;
                     const isActive = activeHat === hat.id;
@@ -1392,14 +1634,14 @@ export default function CatCompanion() {
                           playChirpSound("meow");
                           showThought(`🎩 Wearing my ${hat.name}!`);
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 shrink-0 ${
+                        className={`px-3.5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 shrink-0 ${
                           !isUnlocked
-                            ? "bg-neutral-900/40 text-neutral-600 border border-transparent opacity-50 cursor-not-allowed"
+                            ? "bg-black/40 text-white/20 border border-transparent opacity-50 cursor-not-allowed"
                             : isActive
-                            ? "bg-orange-500/15 text-orange-400 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.1)]"
-                            : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent"
+                            ? "bg-orange-500/20 text-orange-400 border border-orange-500/40 shadow-[0_0_10px_rgba(249,115,22,0.15)] font-black"
+                            : "bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border border-transparent"
                         }`}
-                        title={!isUnlocked ? `Requires streak level ${hat.levelRequired}` : hat.name}
+                        title={!isUnlocked ? `Requires level ${hat.levelRequired}` : hat.name}
                       >
                         {!isUnlocked ? "🔒" : null}
                         <span>{hat.name}</span>
@@ -1414,9 +1656,9 @@ export default function CatCompanion() {
                 {/* Mute Synth Sound Toggle */}
                 <button
                   onClick={() => setIsMuted(!isMuted)}
-                  className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-white/60 hover:text-white transition-colors cursor-pointer font-medium"
                 >
-                  {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  {isMuted ? <VolumeX className="w-4 h-4 text-white/40" /> : <Volume2 className="w-4 h-4 text-white/70 animate-pulse" />}
                   <span>{isMuted ? "Unmute Sound" : "Mute Sound"}</span>
                 </button>
 
@@ -1426,8 +1668,8 @@ export default function CatCompanion() {
                     setIsActive(false);
                     setIsOpen(false);
                   }}
-                  className="text-rose-400/80 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer font-bold"
-                  title="Hide Cat Companion"
+                  className="text-red-400/80 hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer font-bold"
+                  title="Hide Companion"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span>Dismiss Zeytoon</span>
@@ -1438,6 +1680,23 @@ export default function CatCompanion() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Interactive Glowing Laser Pointer Dot */}
+      {laserActive && (
+        <div
+          style={{
+            position: "fixed",
+            left: laserPos.x,
+            top: laserPos.y,
+            transform: "translate(-50%, -50%)",
+            pointerEvents: "none",
+            zIndex: 9999,
+          }}
+          className="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_12px_#ef4444,0_0_22px_#ef4444,0_0_40px_#ef4444] animate-pulse flex items-center justify-center"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-white shadow-inner" />
+        </div>
+      )}
     </>
   );
 }

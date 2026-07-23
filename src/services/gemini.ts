@@ -21,14 +21,9 @@ export function saveGeminiApiKey(key: string) {
   }
 }
 
-// Client factory
+// Client factory - completely deactivated per user instruction to remove AI
 export function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) return null;
-  
-  return new GoogleGenAI({
-    apiKey,
-  });
+  return null;
 }
 
 /**

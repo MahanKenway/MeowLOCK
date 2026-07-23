@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Play, Pause, RotateCcw, PictureInPicture2, Sparkles, Volume2, VolumeX, Flame, Wind, Coffee, Brain, Settings } from "lucide-react";
+import { 
+  Play, Pause, RotateCcw, PictureInPicture2, Sparkles, Volume2, VolumeX, Flame, Wind, Coffee, Brain, Settings,
+  Music, Leaf, Radio, CheckSquare, Pen, Calendar, BarChart2, Star, Cat, Telescope, HeartPulse, CloudSun,
+  LayoutGrid, Clock, Hourglass, Timer, ChevronDown
+} from "lucide-react";
 import { TimerMode, TimerSettings, WorkspaceProfile } from "../types";
 import QuoteWidget from "./QuoteWidget";
 
@@ -22,6 +26,29 @@ interface MinimalModeOverlayProps {
   onSettingsChange?: (settings: TimerSettings) => void;
   activeProfileName?: string;
   activeProfile?: WorkspaceProfile;
+  
+  // Widget states & callbacks for Zen Widget Bar
+  widgetsState?: {
+    todo: boolean;
+    music: boolean;
+    notes: boolean;
+    mixer: boolean;
+    stats: boolean;
+    streak: boolean;
+    radio: boolean;
+    calendar: boolean;
+    space: boolean;
+    wellness: boolean;
+    weather: boolean;
+    cat: boolean;
+  };
+  onToggleWidget?: (name: "todo" | "music" | "notes" | "mixer" | "stats" | "wellness") => void;
+  onToggleRadio?: () => void;
+  onToggleCalendar?: () => void;
+  onToggleStreak?: () => void;
+  onToggleSpace?: () => void;
+  onToggleWeather?: () => void;
+  onToggleCat?: () => void;
 }
 
 // Curated list of deep zen/mindfulness & study focus quotes
@@ -246,6 +273,14 @@ export default function MinimalModeOverlay({
   onSettingsChange,
   activeProfileName = "General",
   activeProfile,
+  widgetsState,
+  onToggleWidget,
+  onToggleRadio,
+  onToggleCalendar,
+  onToggleStreak,
+  onToggleSpace,
+  onToggleWeather,
+  onToggleCat
 }: MinimalModeOverlayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [quoteIdx, setQuoteIdx] = useState(0);
@@ -254,8 +289,10 @@ export default function MinimalModeOverlay({
   const [showSettings, setShowSettings] = useState(false);
   const [showQuotes, setShowQuotes] = useState<boolean>(() => {
     const saved = localStorage.getItem("zen_show_quotes");
-    return saved !== "false";
+    return saved === "true";
   });
+  const [showZenTools, setShowZenTools] = useState(false);
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [showStatusLine, setShowStatusLine] = useState<boolean>(() => {
     const saved = localStorage.getItem("zen_show_status_line");
     return saved !== "false";
@@ -378,8 +415,20 @@ export default function MinimalModeOverlay({
     }
   };
 
+  const modesList = [
+    { id: "clock", label: "ساعت", icon: Clock },
+    { id: "pomodoro", label: "تمرکز", icon: Brain },
+    { id: "shortBreak", label: "استراحت کوتاه", icon: Coffee },
+    { id: "longBreak", label: "استراحت طولانی", icon: Sparkles },
+    { id: "stopwatch", label: "کرونومتر", icon: Hourglass },
+    { id: "countdown", label: "تایمر معکوس", icon: Timer }
+  ];
+
+  const activeModeItem = modesList.find(m => m.id === mode) || modesList[0];
+  const ActiveModeIcon = activeModeItem.icon;
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between text-white overflow-hidden bg-black/90 select-none">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between text-white overflow-y-auto md:overflow-hidden bg-black/90 select-none py-4 md:py-6 h-full custom-scrollbar">
       
       {/* 1. Mindfulness Breathing Gradient Backdrop */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -403,18 +452,17 @@ export default function MinimalModeOverlay({
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.8)_100%)]" />
       </div>
 
-      {/* Top Header Controls: Mode Selector tabs */}
-      <div className="w-full max-w-2xl px-6 pt-12 z-10 flex flex-col items-center gap-6">
-        
+      {/* Top Header Controls: Super clean breathing guide only */}
+      <div className="w-full max-w-2xl px-4 md:px-6 pt-4 md:pt-6 z-10 flex flex-col items-center justify-center shrink-0">
         {/* Subtle breath guidance label */}
         <div className="h-6 flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.span
               key={breathPhase}
               initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 0.6, y: 0 }}
+              animate={{ opacity: 0.35, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
-              className="font-sans text-[11px] font-semibold tracking-[0.35em] text-white/50 uppercase"
+              className="font-sans text-[10px] font-semibold tracking-[0.35em] text-white/40 uppercase"
             >
               {isRunning 
                 ? (breathPhase === "inhale" ? "Inhale..." : breathPhase === "hold" ? "Hold..." : "Exhale...")
@@ -423,37 +471,10 @@ export default function MinimalModeOverlay({
             </motion.span>
           </AnimatePresence>
         </div>
-
-        {/* Elegant Glassy Tab Segmented Mode Controller */}
-        <div className="p-1.5 bg-neutral-900/60 backdrop-blur-2xl border border-white/5 rounded-3xl flex items-center gap-1 shadow-2xl w-full max-w-2xl overflow-x-auto custom-scrollbar">
-          {[
-            { id: "clock", label: "Clock", icon: RotateCcw },
-            { id: "pomodoro", label: "Focus", icon: Brain },
-            { id: "shortBreak", label: "Short Break", icon: Coffee },
-            { id: "longBreak", label: "Long Break", icon: Sparkles },
-            { id: "stopwatch", label: "Stopwatch", icon: Play },
-            { id: "countdown", label: "Countdown", icon: RotateCcw }
-          ].map((item) => {
-            const isActive = mode === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onModeChange && onModeChange(item.id as any)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl font-sans font-bold text-[13px] transition-all cursor-pointer ${
-                  isActive
-                    ? "bg-violet-600/90 text-white shadow-lg shadow-violet-500/20"
-                    : "text-white/50 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* 2. Main Giant Visual Timer */}
-      <div className="flex flex-col items-center justify-center z-10 select-none flex-1 py-12">
+      <div className="flex flex-col items-center justify-center z-10 select-none flex-1 py-4 md:py-8 shrink-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={mode}
@@ -493,7 +514,7 @@ export default function MinimalModeOverlay({
       </div>
 
       {/* 3. Zen Quote Display & Controls Footer */}
-      <div className="w-full max-w-2xl px-6 pb-12 z-10 flex flex-col items-center gap-8">
+      <div className="w-full max-w-2xl px-4 md:px-6 pb-4 md:pb-6 z-10 flex flex-col items-center gap-4 md:gap-5 shrink-0 relative">
         
         {/* Soft, glassy Zen Quote Panel */}
         {showQuotes && (
@@ -502,7 +523,7 @@ export default function MinimalModeOverlay({
               <QuoteWidget activeProfile={activeProfile} />
             </div>
           ) : (
-            <div className="h-20 flex flex-col items-center justify-center text-center">
+            <div className="min-h-[5rem] flex flex-col items-center justify-center text-center">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={quoteIdx}
@@ -524,21 +545,147 @@ export default function MinimalModeOverlay({
           )
         )}
 
+        {/* Zen Tools Popover Menu */}
+        <AnimatePresence>
+          {showZenTools && widgetsState && (
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 15, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="absolute bottom-24 left-6 z-50 bg-[#09090b]/95 backdrop-blur-3xl border border-white/10 p-2.5 rounded-2xl shadow-2xl grid grid-cols-4 gap-1.5 pointer-events-auto"
+            >
+              {[
+                { key: "music", label: "موزیک پلیر", icon: Music, active: widgetsState.music, toggle: () => onToggleWidget && onToggleWidget("music") },
+                { key: "mixer", label: "میکسر صدا", icon: Leaf, active: widgetsState.mixer, toggle: () => onToggleWidget && onToggleWidget("mixer") },
+                { key: "radio", label: "رادیو زیرزمینی", icon: Radio, active: widgetsState.radio, toggle: onToggleRadio },
+                { key: "todo", label: "لیست کارها", icon: CheckSquare, active: widgetsState.todo, toggle: () => onToggleWidget && onToggleWidget("todo") },
+                { key: "notes", label: "یادداشت‌ها", icon: Pen, active: widgetsState.notes, toggle: () => onToggleWidget && onToggleWidget("notes") },
+                { key: "calendar", label: "تقویم", icon: Calendar, active: widgetsState.calendar, toggle: onToggleCalendar },
+                { key: "stats", label: "آمار تمرکز", icon: BarChart2, active: widgetsState.stats, toggle: () => onToggleWidget && onToggleWidget("stats") },
+                { key: "streak", label: "رکورد روزانه", icon: Star, active: widgetsState.streak, toggle: onToggleStreak },
+                { key: "cat", label: "گربه همراه", icon: Cat, active: widgetsState.cat, toggle: onToggleCat },
+                { key: "space", label: "ناسا اسپیس", icon: Telescope, active: widgetsState.space, toggle: onToggleSpace },
+                { key: "wellness", label: "سلامت ذهن", icon: HeartPulse, active: widgetsState.wellness, toggle: () => onToggleWidget && onToggleWidget("wellness") },
+                { key: "weather", label: "هواشناسی", icon: CloudSun, active: widgetsState.weather, toggle: onToggleWeather },
+              ].map((tool) => {
+                const IconComponent = tool.icon;
+                return (
+                  <button
+                    key={tool.key}
+                    onClick={tool.toggle}
+                    className={`p-2.5 rounded-xl border transition-all duration-300 cursor-pointer flex items-center justify-center relative group/tool ${
+                      tool.active
+                        ? "bg-violet-600/20 border-violet-500/40 text-violet-300 shadow-[0_0_8px_rgba(124,58,237,0.2)]"
+                        : "bg-white/[0.02] border-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    }`}
+                    title={tool.label}
+                  >
+                    <IconComponent className="w-[18px] h-[18px]" />
+                    
+                    {/* Minimal Tooltip on hover */}
+                    <span className="absolute bottom-full mb-2 bg-black/95 text-white text-[10px] font-sans font-medium px-2 py-1 rounded border border-white/10 opacity-0 group-hover/tool:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
+                      {tool.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Elegant control bar panel */}
-        <div className="flex items-center justify-between bg-neutral-900/40 backdrop-blur-2xl border border-white/5 rounded-3xl px-8 py-4 shadow-2xl w-full max-w-lg">
+        <div className="flex items-center justify-between bg-neutral-900/40 backdrop-blur-2xl border border-white/5 rounded-3xl px-8 py-3 md:py-4 shadow-2xl w-full max-w-lg">
           
-          {/* Left Controls: Sound / Mute */}
-          <button
-            onClick={toggleMuteAll}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              soundMuted
-                ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20"
-                : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:bg-white/10"
-            }`}
-            title={soundMuted ? "Unmute Environment" : "Mute Environment"}
-          >
-            {soundMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </button>
+          {/* Left Controls: Sound / Mute & Zen Tools Dropdown & Timer Mode Dropdown */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleMuteAll}
+              className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                soundMuted
+                  ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20"
+                  : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:bg-white/10"
+              }`}
+              title={soundMuted ? "Unmute Environment" : "Mute Environment"}
+            >
+              {soundMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+
+            {widgetsState && (
+              <button
+                onClick={() => {
+                  setShowZenTools(!showZenTools);
+                  setShowModeDropdown(false);
+                  setShowSettings(false);
+                }}
+                className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-center ${
+                  showZenTools
+                    ? "bg-violet-600/35 border-violet-500/50 text-violet-300 shadow-[0_0_12px_rgba(124,58,237,0.3)]"
+                    : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                }`}
+                title="Zen Tools"
+              >
+                <LayoutGrid className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Mode Selector Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowModeDropdown(!showModeDropdown);
+                  setShowZenTools(false);
+                  setShowSettings(false);
+                }}
+                className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-1 ${
+                  showModeDropdown
+                    ? "bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+                    : "bg-white/5 border-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                }`}
+                title="Timer Mode Selector"
+              >
+                <ActiveModeIcon className="w-5 h-5" />
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+
+              <AnimatePresence>
+                {showModeDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute bottom-16 left-0 z-50 bg-neutral-950/95 backdrop-blur-3xl border border-white/10 p-2 rounded-2xl shadow-2xl flex flex-col gap-1 min-w-[170px]"
+                  >
+                    <div className="px-2.5 py-1 text-[10px] font-bold text-white/40 uppercase tracking-wider font-sans border-b border-white/5 mb-1 text-center">
+                      حالت زمان‌سنج
+                    </div>
+                    {modesList.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isActive = mode === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            onModeChange && onModeChange(item.id as any);
+                            setShowModeDropdown(false);
+                          }}
+                          className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                            isActive
+                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/20 font-bold"
+                              : "text-white/60 hover:text-white hover:bg-white/5 border border-transparent"
+                          } justify-start`}
+                        >
+                          <ItemIcon className="w-4 h-4 shrink-0 text-amber-400/80" />
+                          <span className="font-sans font-medium">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
 
           {/* Center Play/Pause button */}
           <div className="flex items-center gap-4">
@@ -566,7 +713,11 @@ export default function MinimalModeOverlay({
           {/* Right Controls */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => {
+                setShowSettings(!showSettings);
+                setShowModeDropdown(false);
+                setShowZenTools(false);
+              }}
               className={`p-3 border rounded-2xl transition-all cursor-pointer ${
                 showSettings
                   ? "bg-amber-500 text-neutral-950 border-amber-500 shadow-xl"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
+import { getSystemTime } from "../utils/time";
 
 interface CentralClockProps {
   username: string;
@@ -11,6 +12,7 @@ interface CentralClockProps {
   clockColor?: string;
   modeName?: string;
   isMobile?: boolean;
+  use24HourFormat?: boolean;
 }
 
 export default function CentralClock({
@@ -23,11 +25,12 @@ export default function CentralClock({
   clockColor = "white",
   modeName = "General",
   isMobile = false,
+  use24HourFormat = false,
 }: CentralClockProps) {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(getSystemTime());
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
+    const timer = setInterval(() => setTime(getSystemTime()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -35,13 +38,18 @@ export default function CentralClock({
     let hours = date.getHours();
     let minutes = date.getMinutes();
     let seconds = date.getSeconds();
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
+    
+    if (!use24HourFormat) {
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+    }
+    
+    const hoursStr = use24HourFormat && hours < 10 ? "0" + hours : hours.toString();
     const minutesStr = minutes < 10 ? "0" + minutes : minutes;
     const secondsStr = seconds < 10 ? "0" + seconds : seconds;
     return showSeconds 
-      ? `${hours}:${minutesStr}:${secondsStr}` 
-      : `${hours}:${minutesStr}`;
+      ? `${hoursStr}:${minutesStr}:${secondsStr}` 
+      : `${hoursStr}:${minutesStr}`;
   };
 
   const getDynamicGreeting = (date: Date, name: string) => {

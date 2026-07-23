@@ -197,6 +197,89 @@ const meowlockStorage = {
 
 const localStorage = meowlockStorage;
 
+interface ResizeHandlesProps {
+  minWidth?: number;
+  minHeight?: number;
+}
+
+export function ResizeHandles({ minWidth = 150, minHeight = 150 }: ResizeHandlesProps) {
+  const handleRightPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const container = e.currentTarget.closest(".retro-window") as HTMLDivElement || e.currentTarget.parentElement as HTMLDivElement;
+    if (!container) return;
+    
+    const startWidth = container.getBoundingClientRect().width;
+    const startX = e.clientX;
+    
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.max(minWidth, startWidth + deltaX);
+      container.style.width = `${newWidth}px`;
+    };
+    
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+    
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const handleBottomPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const container = e.currentTarget.closest(".retro-window") as HTMLDivElement || e.currentTarget.parentElement as HTMLDivElement;
+    if (!container) return;
+    
+    const startHeight = container.getBoundingClientRect().height;
+    const startY = e.clientY;
+    
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const newHeight = Math.max(minHeight, startHeight + deltaY);
+      container.style.height = `${newHeight}px`;
+    };
+    
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+    
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  };
+
+  return (
+    <>
+      {/* Right Edge (Horizontal Resize Handle) */}
+      <div 
+        onPointerDown={handleRightPointerDown}
+        className="absolute top-2 right-0 bottom-2 w-2.5 cursor-col-resize z-[45] group select-none hover:bg-amber-400/10 active:bg-amber-400/30 transition-colors rounded-r-md flex flex-col items-center justify-center gap-0.5"
+        title="بکشید برای تغییر عرض"
+      >
+        <div className="w-[2px] h-1.5 bg-white/20 group-hover:bg-amber-400/60 rounded-full transition-colors" />
+        <div className="w-[2px] h-1.5 bg-white/20 group-hover:bg-amber-400/60 rounded-full transition-colors" />
+        <div className="w-[2px] h-1.5 bg-white/20 group-hover:bg-amber-400/60 rounded-full transition-colors" />
+      </div>
+
+      {/* Bottom Edge (Vertical Resize Handle) */}
+      <div 
+        onPointerDown={handleBottomPointerDown}
+        className="absolute bottom-0 left-2 right-2 h-2.5 cursor-row-resize z-[45] group select-none hover:bg-amber-400/10 active:bg-amber-400/30 transition-colors rounded-b-md flex items-center justify-center gap-0.5"
+        title="بکشید برای تغییر ارتفاع"
+      >
+        <div className="h-[2px] w-1.5 bg-white/20 group-hover:bg-amber-400/60 rounded-full transition-colors" />
+        <div className="h-[2px] w-1.5 bg-white/20 group-hover:bg-amber-400/60 rounded-full transition-colors" />
+        <div className="h-[2px] w-1.5 bg-white/20 group-hover:bg-amber-400/60 rounded-full transition-colors" />
+      </div>
+    </>
+  );
+}
+
 import CentralClock from "./components/CentralClock";
 import TimerWidget from "./components/TimerWidget";
 import TodoListWidget from "./components/TodoListWidget";
@@ -213,6 +296,8 @@ import WeatherWidget from "./components/WeatherWidget";
 import WellnessWidget from "./components/WellnessWidget";
 import SpaceExplorer from "./components/SpaceExplorer";
 import CatCompanion from "./components/CatCompanion";
+import LibraryWidget from "./components/LibraryWidget";
+import TiltedCard from "./components/TiltedCard";
 
 // --- STATIC BACKGROUND IMAGE IMPORTS FOR ROBUST BUNDLING ---
 import bgSetarehStudy from "./assets/images/setareh_pixel_study_v2_1783524583594.jpg";
@@ -683,6 +768,9 @@ export default function App() {
   const [showSeconds, setShowSeconds] = useState<boolean>(() => {
     return localStorage.getItem("focus_show_seconds") !== "false";
   });
+  const [use24HourFormat, setUse24HourFormat] = useState<boolean>(() => {
+    return localStorage.getItem("focus_use_24_hour_format") === "true";
+  });
   const [showGreeting, setShowGreeting] = useState<boolean>(() => {
     return localStorage.getItem("focus_show_greeting") !== "false";
   });
@@ -693,9 +781,61 @@ export default function App() {
     return localStorage.getItem("focus_clock_color") || "white";
   });
 
+  // Main settings clock override states
+  const [overrideEnabled, setOverrideEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("focus_time_override_enabled") === "true";
+  });
+  const [overrideDate, setOverrideDate] = useState<string>(() => {
+    const saved = localStorage.getItem("focus_override_date");
+    if (saved) return saved;
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  });
+  const [overrideTime, setOverrideTime] = useState<string>(() => {
+    const saved = localStorage.getItem("focus_override_time");
+    if (saved) return saved;
+    const d = new Date();
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  });
+
   const [textSize, setTextSize] = useState<"sm" | "base" | "lg" | "xl" | "xxl">(() => {
     return (localStorage.getItem("zen_text_size") as any) || "base";
   });
+
+  const applyAppOverrideOffset = (dateStr: string, timeStr: string, enabled: boolean) => {
+    localStorage.setItem("focus_time_override_enabled", String(enabled));
+    localStorage.setItem("focus_override_date", dateStr);
+    localStorage.setItem("focus_override_time", timeStr);
+    if (enabled) {
+      try {
+        const targetStr = `${dateStr}T${timeStr}:00`;
+        const targetDate = new Date(targetStr);
+        if (!isNaN(targetDate.getTime())) {
+          const offset = targetDate.getTime() - Date.now();
+          localStorage.setItem("focus_time_offset", String(offset));
+        }
+      } catch (e) {
+        console.error("Error setting offset", e);
+      }
+    } else {
+      localStorage.removeItem("focus_time_offset");
+    }
+    window.dispatchEvent(new Event("focus-time-override"));
+    window.dispatchEvent(new Event("storage"));
+  };
+
+  useEffect(() => {
+    const handleOverrideSync = () => {
+      const enabled = localStorage.getItem("focus_time_override_enabled") === "true";
+      setOverrideEnabled(enabled);
+    };
+    window.addEventListener("focus-time-override", handleOverrideSync);
+    window.addEventListener("storage", handleOverrideSync);
+    return () => {
+      window.removeEventListener("focus-time-override", handleOverrideSync);
+      window.removeEventListener("storage", handleOverrideSync);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("zen_text_size", textSize);
@@ -1146,6 +1286,26 @@ export default function App() {
     };
   }, [currentRadioStation, isRadioPlaying]);
 
+  // Track total lo-fi radio & ambient sounds listening time in background
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hasAmbientPlaying = activeProfile?.soundVolumes 
+        ? Object.values(activeProfile.soundVolumes).some(v => typeof v === 'number' && v > 0)
+        : false;
+      const isAnyAudioPlaying = isRadioPlaying || hasAmbientPlaying;
+      
+      if (isAnyAudioPlaying) {
+        const currentSecs = parseInt(localStorage.getItem("flocus_total_audio_time") || "0", 10);
+        localStorage.setItem("flocus_total_audio_time", String(currentSecs + 1));
+        
+        // Notify other widgets to update
+        window.dispatchEvent(new CustomEvent("focus-time-override"));
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRadioPlaying, activeProfile.soundVolumes]);
+
   const handleBgFileSelect = async (file: File) => {
     if (!file) return;
     try {
@@ -1211,6 +1371,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("focus_show_seconds", showSeconds.toString());
   }, [showSeconds]);
+
+  useEffect(() => {
+    localStorage.setItem("focus_use_24_hour_format", use24HourFormat.toString());
+    window.dispatchEvent(new Event("focus-time-override"));
+  }, [use24HourFormat]);
 
   useEffect(() => {
     localStorage.setItem("focus_show_greeting", showGreeting.toString());
@@ -1863,8 +2028,8 @@ export default function App() {
         }}
       />
 
-      {!isMinimalMode ? (
-        <>
+      {/* Keep workspace mounted but conditionally show/hide components depending on minimal mode */}
+      <>
           {/* Backdrop for Workspace Studio sidebar */}
           <AnimatePresence>
             {isSidebarOpen && (
@@ -2080,7 +2245,7 @@ export default function App() {
                     <span>User Greeting</span>
                   </button>
 
-                  <button
+                   <button
                     onClick={() => setShowDate(!showDate)}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-sans font-bold transition-all border cursor-pointer ${
                       showDate
@@ -2090,6 +2255,18 @@ export default function App() {
                   >
                     <div className={`w-2 h-2 rounded-full transition-all ${showDate ? "bg-[#7c3aed] scale-110" : "bg-gray-600"}`} />
                     <span>Day & Date Display</span>
+                  </button>
+
+                  <button
+                    onClick={() => setUse24HourFormat(!use24HourFormat)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-sans font-bold transition-all border cursor-pointer ${
+                      use24HourFormat
+                        ? "bg-[#7c3aed]/20 border-[#7c3aed] text-white shadow-lg shadow-[#7c3aed]/5"
+                        : "bg-white/5 border-white/5 text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full transition-all ${use24HourFormat ? "bg-[#7c3aed] scale-110" : "bg-gray-600"}`} />
+                    <span>24-Hour Clock</span>
                   </button>
 
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-sans font-bold transition-all border border-white/5 bg-white/5 text-gray-400">
@@ -2110,6 +2287,57 @@ export default function App() {
                       />
                     </label>
                   </div>
+                </div>
+
+                {/* Manual Clock Time Override Section */}
+                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-3.5 space-y-2.5 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-sans font-semibold text-[11px] text-amber-400">Manual Clock Override</h4>
+                      <p className="font-sans text-[9px] text-gray-400">تنظیم دستی زمان و ساعت سیستم</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={overrideEnabled}
+                        onChange={(e) => {
+                          setOverrideEnabled(e.target.checked);
+                          applyAppOverrideOffset(overrideDate, overrideTime, e.target.checked);
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4.5 bg-white/10 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-amber-400"></div>
+                    </label>
+                  </div>
+
+                  {overrideEnabled && (
+                    <div className="grid grid-cols-2 gap-2 pt-1 animate-scale-up">
+                      <div>
+                        <label className="font-sans text-[9px] text-gray-400 block mb-1">Set Date</label>
+                        <input
+                          type="date"
+                          value={overrideDate}
+                          onChange={(e) => {
+                            setOverrideDate(e.target.value);
+                            applyAppOverrideOffset(e.target.value, overrideTime, true);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white focus:border-amber-400 focus:outline-none [color-scheme:dark]"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-sans text-[9px] text-gray-400 block mb-1">Set Time</label>
+                        <input
+                          type="time"
+                          value={overrideTime}
+                          onChange={(e) => {
+                            setOverrideTime(e.target.value);
+                            applyAppOverrideOffset(overrideDate, e.target.value, true);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white focus:border-amber-400 focus:outline-none [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2155,18 +2383,28 @@ export default function App() {
               {(Object.keys(activeProfile.widgets) as Array<keyof WidgetLayout>).map((widgetKey) => {
                 const isEnabled = activeProfile.widgets[widgetKey];
                 return (
-                  <button
-                    key={widgetKey}
-                    onClick={() => toggleWidget(widgetKey)}
-                    className={`flex items-center gap-3 px-4 py-3 border rounded-xl text-[12px] font-sans font-bold capitalize text-left transition-all cursor-pointer ${
-                      isEnabled
-                        ? "bg-[#7c3aed] border-[#7c3aed] text-white shadow-lg shadow-[#7c3aed]/20"
-                        : "bg-white/5 border-white/5 text-gray-400 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {isEnabled ? <Eye className="w-4 h-4 shrink-0" /> : <EyeOff className="w-4 h-4 shrink-0" />}
-                    <span>{widgetKey}</span>
-                  </button>
+                  <div key={widgetKey} className="relative h-[48px]">
+                    <TiltedCard
+                      imageSrc=""
+                      containerHeight="48px"
+                      containerWidth="100%"
+                      scaleOnHover={1.03}
+                      rotateAmplitude={8}
+                      showTooltip={false}
+                    >
+                      <button
+                        onClick={() => toggleWidget(widgetKey)}
+                        className={`w-full h-full flex items-center gap-3 px-4 py-3 border rounded-xl text-[12px] font-sans font-bold capitalize text-left transition-all cursor-pointer ${
+                          isEnabled
+                            ? "bg-[#7c3aed] border-[#7c3aed] text-white shadow-lg shadow-[#7c3aed]/20"
+                            : "bg-white/5 border-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        {isEnabled ? <Eye className="w-4 h-4 shrink-0" /> : <EyeOff className="w-4 h-4 shrink-0" />}
+                        <span>{widgetKey}</span>
+                      </button>
+                    </TiltedCard>
+                  </div>
                 );
               })}
             </div>
@@ -2387,9 +2625,9 @@ export default function App() {
       </div>
 
       {/* --- MAIN HEADER BAR --- */}
-      <header className="w-full z-30 px-4 lg:px-8 py-4 lg:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-transparent relative select-none">
+      <header className={`w-full z-[35] px-4 lg:px-8 py-4 lg:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-transparent relative select-none pointer-events-none ${isMinimalMode ? "hidden" : ""}`}>
         {/* Top-Left Branding */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pointer-events-auto">
           <div className="flex flex-col items-start gap-1">
             <span className="font-sans font-black text-3xl tracking-tighter text-white leading-none">MeowLOCK</span>
             <span className="font-clock-sacramento text-lg text-white/70 leading-none mt-1 select-none cursor-default capitalize">
@@ -2424,7 +2662,7 @@ export default function App() {
       </header>
 
       {/* --- MAIN DASHBOARD AREA --- */}
-      <main className="flex-1 relative z-10 flex flex-col lg:flex-row w-full h-full lg:overflow-hidden overflow-y-auto p-4 lg:p-6 gap-6">
+      <main className={`flex-1 relative flex flex-col lg:flex-row w-full h-full lg:overflow-hidden overflow-y-auto p-4 lg:p-6 gap-6 ${isMinimalMode ? "z-[51] pointer-events-none" : "z-10"}`}>
         {/* Mobile Backdrop Overlay */}
         <AnimatePresence>
           {isMobile && (
@@ -2463,8 +2701,8 @@ export default function App() {
 
         {/* --- LEFT SIDE FLOATING STACK --- */}
         <div 
-          className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed left-6 top-24 bottom-28 w-80 md:w-96 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}
-          style={isMobile ? {} : { zIndex: isLeftWidgetFocused ? 30 : 20 }}
+          className={isMobile ? `w-full ${isMinimalMode ? "z-[101]" : "z-50"} flex flex-col gap-4 pointer-events-auto pb-4` : "fixed left-6 top-24 bottom-28 w-80 md:w-96 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}
+          style={isMobile ? {} : { zIndex: isMinimalMode ? 52 : (isLeftWidgetFocused ? 30 : 20) }}
         >
           <AnimatePresence mode="popLayout">
             {/* 1. Tasks Checklist Panel */}
@@ -2495,37 +2733,54 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                <button
-                  onClick={() => toggleWidget("todo")}
-                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.015}
+                  rotateAmplitude={4}
+                  showTooltip={false}
+                  noFallbackBg={true}
                 >
-                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                </button>
-                <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
-                  <TodoListWidget
-                    tasks={tasks}
-                    onAddTask={handleAddTask}
-                    onToggleTask={handleToggleTask}
-                    onDeleteTask={handleDeleteTask}
-                    onResetTasks={handleResetTasks}
-                    activeTaskId={activeTaskId}
-                    onSetActiveTaskId={setActiveTaskId}
-                    onUpdateTask={handleUpdateTask}
-                    onReorderTasks={setTasks}
-                    onAddCalendarEvent={(title, tag) => {
-                      const d = new Date();
-                      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                      const newEv = {
-                        id: "event-" + Math.random().toString(36).substring(2, 9),
-                        dateStr,
-                        title,
-                        category: "focus" as const,
-                        notes: `Created from Focus Checklist [Tag: ${tag}]`
-                      };
-                      setCalendarEvents(prev => [...prev, newEv]);
-                    }}
-                  />
-                </div>
+                  <div className="w-full h-full flex flex-col relative">
+                    <button
+                      onClick={() => toggleWidget("todo")}
+                      className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                    >
+                      <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                    </button>
+                    <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
+                      <TodoListWidget
+                        tasks={tasks}
+                        onAddTask={handleAddTask}
+                        onToggleTask={handleToggleTask}
+                        onDeleteTask={handleDeleteTask}
+                        onResetTasks={handleResetTasks}
+                        activeTaskId={activeTaskId}
+                        onSetActiveTaskId={setActiveTaskId}
+                        onUpdateTask={handleUpdateTask}
+                        onReorderTasks={setTasks}
+                        onAddCalendarEvent={(title, tag) => {
+                          const d = new Date();
+                          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                          const newEv = {
+                            id: "event-" + Math.random().toString(36).substring(2, 9),
+                            dateStr,
+                            title,
+                            category: "focus" as const,
+                            notes: `Created from Focus Checklist [Tag: ${tag}]`
+                          };
+                          setCalendarEvents(prev => [...prev, newEv]);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && (
+                  <ResizeHandles minWidth={320} minHeight={300} />
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2564,25 +2819,45 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                {(notesViewMode === "normal" || isMobile) && (
-                  <button
-                    onClick={() => toggleWidget("notes")}
-                    className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
-                  >
-                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                  </button>
-                )}
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <NotesWidget
-                    noteContent={noteContent}
-                    onChange={setNoteContent}
-                    isMiniMode={isNotesMini}
-                    setIsMiniMode={setIsNotesMini}
-                    viewMode={notesViewMode}
-                    setViewMode={setNotesViewMode}
-                    onClose={() => toggleWidget("notes")}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.015}
+                  rotateAmplitude={4}
+                  showTooltip={false}
+                  noFallbackBg={true}
+                >
+                  <div className="w-full h-full flex flex-col relative">
+                    {(notesViewMode === "normal" || isMobile) && (
+                      <button
+                        onClick={() => toggleWidget("notes")}
+                        className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                      >
+                        <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                      </button>
+                    )}
+                    <div className="flex-1 overflow-y-auto no-scrollbar">
+                      <NotesWidget
+                        noteContent={noteContent}
+                        onChange={setNoteContent}
+                        isMiniMode={isNotesMini}
+                        setIsMiniMode={setIsNotesMini}
+                        viewMode={notesViewMode}
+                        setViewMode={setNotesViewMode}
+                        onClose={() => toggleWidget("notes")}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && notesViewMode !== "alt" && notesViewMode !== "alt_mini" && (
+                  <ResizeHandles 
+                    minWidth={notesViewMode === "mini" ? 180 : 280} 
+                    minHeight={notesViewMode === "mini" ? 120 : 240} 
                   />
-                </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2619,22 +2894,39 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                <button
-                  onClick={() => setIsCalendarOpen(false)}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.015}
+                  rotateAmplitude={4}
+                  showTooltip={false}
+                  noFallbackBg={true}
                 >
-                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                </button>
-                <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
-                  <CalendarWidget 
-                    onClose={() => setIsCalendarOpen(false)} 
-                    events={calendarEvents}
-                    onAddEvent={(ev) => setCalendarEvents(prev => [...prev, ev])}
-                    onDeleteEvent={(id) => setCalendarEvents(prev => prev.filter(e => e.id !== id))}
-                    onDeleteAllEvents={() => setCalendarEvents([])}
-                  />
-                </div>
+                  <div className="w-full h-full flex flex-col relative">
+                    <button
+                      onClick={() => setIsCalendarOpen(false)}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                    >
+                      <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                    </button>
+                    <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
+                      <CalendarWidget 
+                        onClose={() => setIsCalendarOpen(false)} 
+                        events={calendarEvents}
+                        onAddEvent={(ev) => setCalendarEvents(prev => [...prev, ev])}
+                        onDeleteEvent={(id) => setCalendarEvents(prev => prev.filter(e => e.id !== id))}
+                        onDeleteAllEvents={() => setCalendarEvents([])}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && (
+                  <ResizeHandles minWidth={350} minHeight={400} />
+                )}
               </motion.div>
             )}
 
@@ -2669,38 +2961,55 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: -40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                <button
-                  onClick={() => setIsSpaceExplorerOpen(false)}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "hidden"}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.01}
+                  rotateAmplitude={2}
+                  showTooltip={false}
+                  noFallbackBg={true}
                 >
-                  <X className="w-5 h-5" />
-                </button>
-                <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
-                  <SpaceExplorer
-                    onClose={() => setIsSpaceExplorerOpen(false)}
-                    onSetBackground={(url, type, title, explanation) => {
-                      setNasaBgUrl(url);
-                      setNasaBgType(type);
-                      setNasaBgTitle(title || "");
-                      setNasaBgExplanation(explanation || "");
-                      localStorage.setItem("zen_space_bg_url", url);
-                      localStorage.setItem("zen_space_bg_type", type);
-                      if (title) localStorage.setItem("zen_space_bg_title", title);
-                      if (explanation) localStorage.setItem("zen_space_bg_explanation", explanation);
-                    }}
-                    onClearBackground={() => {
-                      setNasaBgUrl("");
-                      setNasaBgTitle("");
-                      setNasaBgExplanation("");
-                      localStorage.removeItem("zen_space_bg_url");
-                      localStorage.removeItem("zen_space_bg_type");
-                      localStorage.removeItem("zen_space_bg_title");
-                      localStorage.removeItem("zen_space_bg_explanation");
-                    }}
-                    currentBgUrl={nasaBgUrl}
-                  />
-                </div>
+                  <div className="w-full h-full flex flex-col relative">
+                    <button
+                      onClick={() => setIsSpaceExplorerOpen(false)}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "hidden"}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
+                      <SpaceExplorer
+                        onClose={() => setIsSpaceExplorerOpen(false)}
+                        onSetBackground={(url, type, title, explanation) => {
+                          setNasaBgUrl(url);
+                          setNasaBgType(type);
+                          setNasaBgTitle(title || "");
+                          setNasaBgExplanation(explanation || "");
+                          localStorage.setItem("zen_space_bg_url", url);
+                          localStorage.setItem("zen_space_bg_type", type);
+                          if (title) localStorage.setItem("zen_space_bg_title", title);
+                          if (explanation) localStorage.setItem("zen_space_bg_explanation", explanation);
+                        }}
+                        onClearBackground={() => {
+                          setNasaBgUrl("");
+                          setNasaBgTitle("");
+                          setNasaBgExplanation("");
+                          localStorage.removeItem("zen_space_bg_url");
+                          localStorage.removeItem("zen_space_bg_type");
+                          localStorage.removeItem("zen_space_bg_title");
+                          localStorage.removeItem("zen_space_bg_explanation");
+                        }}
+                        currentBgUrl={nasaBgUrl}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && (
+                  <ResizeHandles minWidth={500} minHeight={550} />
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2719,6 +3028,7 @@ export default function App() {
               clockColor={clockColor}
               modeName={activeProfile.name}
               isMobile={isMobile}
+              use24HourFormat={use24HourFormat}
             />
 
             {/* Quick clock toggles row */}
@@ -2821,6 +3131,44 @@ export default function App() {
               />
             </div>
           )}
+
+          {!!activeProfile.widgets.library && (
+            <motion.div
+              key="library-widget"
+              onPointerDown={() => setFocusedWidget("library")}
+              drag={isMobile ? false : true}
+              dragMomentum={true}
+              dragElastic={0.06}
+              dragTransition={{ power: 0.06, timeConstant: 180 }}
+              data-window-title="StudyBook.exe"
+              className={isMobile 
+                ? "pointer-events-auto fixed inset-x-4 bottom-24 top-20 z-[90] bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col rounded-2xl" 
+                : "pointer-events-auto fixed bg-slate-950/20 backdrop-blur-3xl border border-white/10 shadow-2xl flex flex-col"}
+              style={isMobile ? {
+                borderRadius: `${windowRoundness}px`
+              } : {
+                left: '12%',
+                top: '100px',
+                resize: 'both',
+                overflow: 'hidden',
+                width: '1040px',
+                height: '700px',
+                minWidth: '600px',
+                minHeight: '400px',
+                borderRadius: `${windowRoundness}px`,
+                zIndex: focusedWidget === "library" ? 95 : 50
+              }}
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 30 }}
+              transition={{ duration: 0.3 }}
+            >
+              <LibraryWidget
+                onClose={() => toggleWidget("library")}
+                accentColor={activeProfile.accentColor}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <WellnessWidget 
@@ -2829,13 +3177,14 @@ export default function App() {
           settings={activeProfile.wellnessSettings}
           onSettingsChange={(settings) => updateProfileField("wellnessSettings", settings)}
           isMobile={isMobile}
+          isMinimalMode={isMinimalMode}
         />
         
 
         {/* --- RIGHT SIDE FLOATING STACK --- */}
         <div 
-          className={isMobile ? "w-full z-50 flex flex-col gap-4 pointer-events-auto pb-4" : "fixed right-6 top-24 bottom-28 w-80 md:w-96 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}
-          style={isMobile ? {} : { zIndex: isRightWidgetFocused ? 30 : 20 }}
+          className={isMobile ? `w-full ${isMinimalMode ? "z-[101]" : "z-50"} flex flex-col gap-4 pointer-events-auto pb-4` : "fixed right-6 top-24 bottom-28 w-80 md:w-96 flex flex-col gap-4 pointer-events-none overflow-visible pb-4"}
+          style={isMobile ? {} : { zIndex: isMinimalMode ? 52 : (isRightWidgetFocused ? 30 : 20) }}
         >
           <AnimatePresence mode="popLayout">
             {/* 1. Ambient sound procedural Mixer */}
@@ -2866,18 +3215,35 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.2 }, scale: { type: "spring", damping: 22, stiffness: 150 } }}
               >
-                <button
-                  onClick={() => toggleWidget("mixer")}
-                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.015}
+                  rotateAmplitude={4}
+                  showTooltip={false}
+                  noFallbackBg={true}
                 >
-                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                </button>
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <AmbientMixer
-                    volumes={activeProfile.soundVolumes}
-                    onChange={(volumes) => updateProfileField("soundVolumes", volumes)}
-                  />
-                </div>
+                  <div className="w-full h-full flex flex-col relative">
+                    <button
+                      onClick={() => toggleWidget("mixer")}
+                      className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                    >
+                      <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                    </button>
+                    <div className="flex-1 overflow-y-auto no-scrollbar">
+                      <AmbientMixer
+                        volumes={activeProfile.soundVolumes}
+                        onChange={(volumes) => updateProfileField("soundVolumes", volumes)}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && (
+                  <ResizeHandles minWidth={280} minHeight={180} />
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2916,23 +3282,43 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                <button
-                  onClick={() => toggleWidget("music")}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className={isMobile ? "absolute right-4 top-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : `absolute right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10 ${
-                    musicViewMode === "mini" ? "top-2.5" : (musicViewMode === "alt" ? "top-2.5" : (musicViewMode === "alt_mini" ? "top-2.5" : "top-4"))
-                  }`}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.01}
+                  rotateAmplitude={2}
+                  showTooltip={false}
+                  noFallbackBg={true}
                 >
-                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                </button>
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <MusicWidget
-                    isMiniMode={isMusicMini}
-                    setIsMiniMode={setIsMusicMini}
-                    viewMode={musicViewMode}
-                    setViewMode={setMusicViewMode}
+                  <div className="w-full h-full flex flex-col relative">
+                    <button
+                      onClick={() => toggleWidget("music")}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className={isMobile ? "absolute right-4 top-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : `absolute right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10 ${
+                        musicViewMode === "mini" ? "top-2.5" : (musicViewMode === "alt" ? "top-2.5" : (musicViewMode === "alt_mini" ? "top-2.5" : "top-4"))
+                      }`}
+                    >
+                      <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                    </button>
+                    <div className="flex-1 overflow-y-auto no-scrollbar">
+                      <MusicWidget
+                        isMiniMode={isMusicMini}
+                        setIsMiniMode={setIsMusicMini}
+                        viewMode={musicViewMode}
+                        setViewMode={setMusicViewMode}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && musicViewMode !== "alt" && musicViewMode !== "alt_mini" && (
+                  <ResizeHandles 
+                    minWidth={musicViewMode === "mini" ? 380 : 380} 
+                    minHeight={musicViewMode === "mini" ? 90 : 580} 
                   />
-                </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2968,30 +3354,47 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, y: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                {(!isRadioMini || isMobile) && (
-                  <button
-                    onClick={() => setIsRadioOpen(false)}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute right-4 top-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
-                  >
-                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                  </button>
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.01}
+                  rotateAmplitude={2}
+                  showTooltip={false}
+                  noFallbackBg={true}
+                >
+                  <div className="w-full h-full flex flex-col relative">
+                    {(!isRadioMini || isMobile) && (
+                      <button
+                        onClick={() => setIsRadioOpen(false)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute right-4 top-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                      >
+                        <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                      </button>
+                    )}
+                    <div className="flex-1 overflow-y-auto no-scrollbar">
+                      <RadioWidget
+                        onClose={() => setIsRadioOpen(false)}
+                        currentStation={currentRadioStation}
+                        onSelectStation={setCurrentRadioStation}
+                        isPlaying={isRadioPlaying}
+                        onSetIsPlaying={setIsRadioPlaying}
+                        volume={radioVolume}
+                        onSetVolume={setRadioVolume}
+                        activeMood={radioMood}
+                        onSetActiveMood={setRadioMood}
+                        isMiniMode={isRadioMini}
+                        setIsMiniMode={setIsRadioMini}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && !isRadioMini && (
+                  <ResizeHandles minWidth={380} minHeight={400} />
                 )}
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <RadioWidget
-                    onClose={() => setIsRadioOpen(false)}
-                    currentStation={currentRadioStation}
-                    onSelectStation={setCurrentRadioStation}
-                    isPlaying={isRadioPlaying}
-                    onSetIsPlaying={setIsRadioPlaying}
-                    volume={radioVolume}
-                    onSetVolume={setRadioVolume}
-                    activeMood={radioMood}
-                    onSetActiveMood={setRadioMood}
-                    isMiniMode={isRadioMini}
-                    setIsMiniMode={setIsRadioMini}
-                  />
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -3011,12 +3414,12 @@ export default function App() {
                 style={isMobile ? {
                   borderRadius: `${windowRoundness}px`
                 } : {
-                  resize: 'both',
-                  overflow: 'auto',
-                  width: '360px',
-                  height: '350px',
-                  minWidth: '280px',
-                  minHeight: '180px',
+                  resize: 'none',
+                  overflow: 'hidden',
+                  width: '680px',
+                  height: '580px',
+                  minWidth: '320px',
+                  minHeight: '300px',
                   borderRadius: `${windowRoundness}px`,
                   zIndex: focusedWidget === "stats" ? 30 : 10
                 }}
@@ -3025,15 +3428,32 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                <button
-                  onClick={() => toggleWidget("stats")}
-                  className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.01}
+                  rotateAmplitude={2}
+                  showTooltip={false}
+                  noFallbackBg={true}
                 >
-                  <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                </button>
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <StatsWidget sessions={focusHistory} dailyGoalMinutes={dailyGoalMinutes} />
-                </div>
+                  <div className="w-full h-full flex flex-col relative">
+                    <button
+                      onClick={() => toggleWidget("stats")}
+                      className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                    >
+                      <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                    </button>
+                    <div className="flex-1 overflow-y-auto no-scrollbar">
+                      <StatsWidget sessions={focusHistory} dailyGoalMinutes={dailyGoalMinutes} />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && (
+                  <ResizeHandles minWidth={320} minHeight={300} />
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -3069,25 +3489,42 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.92, x: 40, transition: { duration: 0.25, ease: "easeInOut" } }}
                 transition={{ opacity: { duration: 0.35 }, scale: { type: "spring", damping: 26, stiffness: 85 } }}
               >
-                {(!isStreakMini || isMobile) && (
-                  <button
-                    onClick={() => setIsStreakOpen(false)}
-                    className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
-                  >
-                    <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                  </button>
+                <TiltedCard
+                  imageSrc=""
+                  containerHeight="100%"
+                  containerWidth="100%"
+                  imageHeight="100%"
+                  imageWidth="100%"
+                  scaleOnHover={1.015}
+                  rotateAmplitude={4}
+                  showTooltip={false}
+                  noFallbackBg={true}
+                >
+                  <div className="w-full h-full flex flex-col justify-center items-center relative">
+                    {(!isStreakMini || isMobile) && (
+                      <button
+                        onClick={() => setIsStreakOpen(false)}
+                        className={isMobile ? "absolute top-4 right-4 p-2.5 bg-white/5 border border-white/10 text-gray-300 hover:text-white rounded-xl cursor-pointer z-10 shadow-lg" : "absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors cursor-pointer z-10"}
+                      >
+                        <X className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+                      </button>
+                    )}
+                    <div className={`no-scrollbar ${isStreakMini ? "w-full h-full flex items-center justify-center" : "flex-1 w-full overflow-y-auto"}`}>
+                      <StreakWidget
+                        sessions={focusHistory}
+                        onAddSession={(newSession) => {
+                          setFocusHistory((prev) => [newSession, ...prev]);
+                        }}
+                        onClose={() => setIsStreakOpen(false)}
+                        isMiniMode={isStreakMini}
+                        setIsMiniMode={setIsStreakMini}
+                      />
+                    </div>
+                  </div>
+                </TiltedCard>
+                {!isMobile && !isStreakMini && (
+                  <ResizeHandles minWidth={320} minHeight={350} />
                 )}
-                <div className={`no-scrollbar ${isStreakMini ? "w-full h-full flex items-center justify-center" : "flex-1 w-full overflow-y-auto"}`}>
-                  <StreakWidget
-                    sessions={focusHistory}
-                    onAddSession={(newSession) => {
-                      setFocusHistory((prev) => [newSession, ...prev]);
-                    }}
-                    onClose={() => setIsStreakOpen(false)}
-                    isMiniMode={isStreakMini}
-                    setIsMiniMode={setIsStreakMini}
-                  />
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -3096,7 +3533,8 @@ export default function App() {
       </main>
       {/* --- FLOATING DOCK CONTROLS --- */}
       {!isMobile ? (
-        <>
+        !isMinimalMode && (
+          <>
           {/* --- LEFT FLOATING DOCK --- */}
           <motion.div
             drag={true}
@@ -3235,6 +3673,15 @@ export default function App() {
               <Lightbulb className="w-4 h-4" />
             </button>
             <button
+              onClick={() => toggleWidget("library")}
+              className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
+                activeProfile.widgets.library ? "text-emerald-400 bg-emerald-500/10" : "text-gray-400 hover:text-white"
+              }`}
+              title="Study Book | استادی بوک"
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+            <button
               onClick={toggleCatActive}
               className={`p-2 rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
                 isCatActive ? "text-amber-400" : "text-gray-400 hover:text-white"
@@ -3259,9 +3706,11 @@ export default function App() {
             </button>
           </motion.div>
         </>
+        )
       ) : (
         /* --- UNIFIED MOBILE DOCK --- */
-        <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none">
+        !isMinimalMode && (
+          <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none">
           {/* Left scroll indicator gradient */}
           <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0a0a0a]/95 to-transparent pointer-events-none z-10 rounded-l-xl" />
           {/* Right scroll indicator gradient */}
@@ -3377,6 +3826,17 @@ export default function App() {
             <Star className={`w-5 h-5 ${isStreakOpen ? "fill-amber-400/20" : ""}`} />
           </button>
 
+          {/* Library & Book Browser */}
+          <button
+            onClick={() => toggleWidget("library")}
+            className={`p-3 rounded-lg transition-all shrink-0 cursor-pointer ${
+              activeProfile.widgets.library ? "text-emerald-400 bg-white/10" : "text-gray-400"
+            }`}
+            title="Study Book | استادی بوک"
+          >
+            <BookOpen className="w-5 h-5" />
+          </button>
+
           {/* 10. Cat */}
           <button
             onClick={toggleCatActive}
@@ -3440,27 +3900,61 @@ export default function App() {
           </button>
         </motion.div>
       </div>
+      )
       )}
-        </>
-      ) : (
-        <TimerWidget
-          settings={activeProfile.timerSettings}
-          onSettingsChange={(settings) => updateProfileField("timerSettings", settings)}
-          onSessionComplete={handleSessionComplete}
-          activeProfileName={activeProfile.name}
-          isMinimalMode={true}
-          onExitMinimalMode={() => setIsMinimalMode(false)}
-          isImmersiveCenter={false}
-          clockFontClass={clockFontClass}
-          clockSize={clockSize}
-          onClockSizeChange={setClockSize}
-          clockColor={clockColor}
-          onClockColorChange={setClockColor}
-          username={username}
-          activeTask={activeTask}
-          activeProfile={activeProfile}
-        />
-      )}
+      </>
+
+      {/* --- ZEN MODE OVERLAY (Fades on top when active) --- */}
+      <AnimatePresence>
+        {isMinimalMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 pointer-events-auto"
+          >
+            <TimerWidget
+              settings={activeProfile.timerSettings}
+              onSettingsChange={(settings) => updateProfileField("timerSettings", settings)}
+              onSessionComplete={handleSessionComplete}
+              activeProfileName={activeProfile.name}
+              isMinimalMode={true}
+              onExitMinimalMode={() => setIsMinimalMode(false)}
+              isImmersiveCenter={false}
+              clockFontClass={clockFontClass}
+              clockSize={clockSize}
+              onClockSizeChange={setClockSize}
+              clockColor={clockColor}
+              onClockColorChange={setClockColor}
+              username={username}
+              activeTask={activeTask}
+              activeProfile={activeProfile}
+              
+              widgetsState={{
+                todo: !!activeProfile.widgets.todo,
+                music: !!activeProfile.widgets.music,
+                notes: !!activeProfile.widgets.notes,
+                mixer: !!activeProfile.widgets.mixer,
+                stats: !!activeProfile.widgets.stats,
+                streak: isStreakOpen,
+                radio: isRadioOpen,
+                calendar: isCalendarOpen,
+                space: isSpaceExplorerOpen,
+                wellness: !!activeProfile.widgets.wellness,
+                weather: isWeatherOpen,
+                cat: isCatActive
+              }}
+              onToggleWidget={toggleWidget}
+              onToggleRadio={() => setIsRadioOpen(!isRadioOpen)}
+              onToggleCalendar={() => setIsCalendarOpen(!isCalendarOpen)}
+              onToggleStreak={() => setIsStreakOpen(!isStreakOpen)}
+              onToggleSpace={() => setIsSpaceExplorerOpen(!isSpaceExplorerOpen)}
+              onToggleWeather={() => setIsWeatherOpen(!isWeatherOpen)}
+              onToggleCat={toggleCatActive}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
   
       <CatCompanion />
     </div>

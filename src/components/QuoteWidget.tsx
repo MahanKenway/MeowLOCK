@@ -149,19 +149,19 @@ export default function QuoteWidget({ activeProfile }: QuoteWidgetProps) {
   }, [activeProfile.name]);
 
   return (
-    <div className="bg-[#1C1C1E]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-6 text-white shadow-2xl relative overflow-hidden flex flex-col justify-center min-h-[140px] group/quote">
+    <div className="bg-[#1C1C1E]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 md:p-5 text-white shadow-2xl relative overflow-hidden flex flex-col justify-center min-h-[100px] md:min-h-[120px] group/quote">
       {/* Background Icon Decoration */}
-      <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-        <Quote className="w-24 h-24" />
+      <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none">
+        <Quote className="w-16 h-16 md:w-20 md:h-20" />
       </div>
 
       {/* Manual Refresh Button */}
       <button 
         onClick={() => cycleQuote(true)} 
-        className="absolute top-4 right-4 text-gray-400 hover:text-white transition-all p-1.5 rounded-lg hover:bg-white/5 opacity-0 group-hover/quote:opacity-100 focus:opacity-100 z-20"
+        className="absolute top-3 right-3 text-gray-400 hover:text-white transition-all p-1 rounded-lg hover:bg-white/5 opacity-0 group-hover/quote:opacity-100 focus:opacity-100 z-20"
         title="Refresh Quote"
       >
-        <RefreshCw className={`w-4 h-4 transition-transform duration-500 ${isRefreshing ? 'rotate-180 text-[#7c3aed]' : ''}`} />
+        <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isRefreshing ? 'rotate-180 text-[#7c3aed]' : ''}`} />
       </button>
       
       <AnimatePresence mode="wait">
@@ -173,10 +173,10 @@ export default function QuoteWidget({ activeProfile }: QuoteWidgetProps) {
           transition={{ duration: 0.5 }}
           className="relative z-10"
         >
-          <p className="text-lg font-serif italic text-gray-200 mb-3 leading-relaxed pr-8">
+          <p className="text-xs sm:text-sm md:text-base lg:text-lg font-serif italic text-gray-200 mb-1.5 md:mb-2 leading-relaxed pr-8">
             "{currentQuote.quote}"
           </p>
-          <p className="text-sm font-medium text-[#7c3aed] text-right">
+          <p className="text-[11px] sm:text-xs md:text-sm font-medium text-[#7c3aed] text-right">
             — {currentQuote.author}
           </p>
         </motion.div>
