@@ -256,27 +256,92 @@ export default function LibraryWidget({
     setError(null);
     setPage(targetPage);
 
-    try {
-      const response = await fetchWithRetry("/api/zlib/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: query.trim(),
-          cookies: cookies || {},
-          page: targetPage,
-          source: searchSource,
-          mirror
-        })
-      });
-      const data = await response.json();
-      if (data.status === "success") {
-        setBooks(data.books || []);
-        setTotalPages(data.total_pages || 1);
-      } else {
-        setError(data.message || "Could not parse search results. Z-Library may require you to be logged in to view public search results, or the mirror might be blocked.");
+    const isStaticHost = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+
+    if (!isStaticHost) {
+      try {
+        const response = await fetchWithRetry("/api/zlib/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: query.trim(),
+            cookies: cookies || {},
+            page: targetPage,
+            source: searchSource,
+            mirror
+          })
+        });
+        const data = await response.json();
+        if (data.status === "success" && data.books && data.books.length > 0) {
+          setBooks(data.books || []);
+          setTotalPages(data.total_pages || 1);
+          setIsLoading(false);
+          return;
+        }
+      } catch (err: any) {
+        console.warn("[LibraryWidget] Backend Z-Lib search unavailable, falling back to direct public catalog search...", err);
       }
-    } catch (err: any) {
-      setError(`Network delay or service issue: ${err.message || "Failed to contact proxy server."} Try clicking "Retry Connection" below.`);
+    }
+
+    // Client-Side Fallback Search using Gutendex & OpenLibrary
+    try {
+      const gRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query.trim())}`);
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        if (gData.results && gData.results.length > 0) {
+          const mappedBooks: Book[] = gData.results.map((b: any) => {
+            const htmlUrl = b.formats["text/html"] || b.formats["text/html; charset=utf-8"];
+            const txtUrl = b.formats["text/plain; charset=utf-8"] || b.formats["text/plain"];
+            const epubUrl = b.formats["application/epub+zip"];
+
+            return {
+              id: `gutenberg-${b.id}`,
+              name: b.title,
+              authors: b.authors?.map((a: any) => a.name) || ["Unknown Author"],
+              cover: b.formats["image/jpeg"],
+              language: b.languages?.[0]?.toUpperCase() || "EN",
+              extension: epubUrl ? "epub" : htmlUrl ? "html" : "txt",
+              size: "Public Domain",
+              download_url: htmlUrl || txtUrl || epubUrl,
+              url: htmlUrl || txtUrl
+            };
+          });
+          setBooks(mappedBooks);
+          setTotalPages(Math.ceil((gData.count || mappedBooks.length) / 32));
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const olRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query.trim())}&page=${targetPage}`);
+      if (olRes.ok) {
+        const olData = await olRes.json();
+        if (olData.docs && olData.docs.length > 0) {
+          const mappedBooks: Book[] = olData.docs.slice(0, 20).map((d: any) => {
+            const coverId = d.cover_i;
+            const coverUrl = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : undefined;
+            return {
+              id: `ol-${d.key.replace("/works/", "")}`,
+              name: d.title,
+              authors: d.author_name || ["Unknown Author"],
+              cover: coverUrl,
+              year: d.first_publish_year ? String(d.first_publish_year) : undefined,
+              language: d.language?.[0]?.toUpperCase() || "EN",
+              publisher: d.publisher?.[0],
+              extension: "catalog",
+              size: "Open Catalog"
+            };
+          });
+          setBooks(mappedBooks);
+          setTotalPages(Math.ceil((olData.numFound || mappedBooks.length) / 20));
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      setError("No matching books found. Try searching with a different book title or author name.");
+    } catch (fallbackErr: any) {
+      setError("Failed to reach book catalog services. Please check your network connection.");
     } finally {
       setIsLoading(false);
     }

@@ -24,20 +24,28 @@ export async function searchMusicClient(
 
   try {
     if (engine === "youtube") {
-      const resp = await fetch(`/api/music/search?engine=youtube&q=${encodeURIComponent(query)}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        return (data.results || []).map((v: any) => ({
-          id: v.id,
-          name: v.name,
-          artist: v.artist,
-          url: `youtube://${v.id.replace("youtube-", "")}`,
-          cover: v.cover,
-          format: "YouTube video",
-          duration: "LIVE"
-        }));
+      const isStaticHost = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+      if (!isStaticHost) {
+        try {
+          const resp = await fetch(`/api/music/search?engine=youtube&q=${encodeURIComponent(query)}`);
+          if (resp.ok) {
+            const data = await resp.json();
+            const results = (data.results || []).map((v: any) => ({
+              id: v.id,
+              name: v.name,
+              artist: v.artist,
+              url: `youtube://${v.id.replace("youtube-", "")}`,
+              cover: v.cover,
+              format: "YouTube video",
+              duration: "LIVE"
+            }));
+            if (results.length > 0) return results;
+          }
+        } catch (err) {
+          console.warn("[MusicService] YouTube proxy search unavailable, falling back to direct public streaming archives...", err);
+        }
       }
-      return [];
+      return searchMusicClient(query, "archive");
     }
 
     if (engine === "spotify" && spotifyToken) {

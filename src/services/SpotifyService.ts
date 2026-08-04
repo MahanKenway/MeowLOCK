@@ -87,6 +87,9 @@ export class SpotifyService {
     if (this.cachedClientId) {
       return this.cachedClientId;
     }
+    if (typeof window !== "undefined" && window.location.hostname.includes("github.io")) {
+      return null;
+    }
     try {
       const resp = await fetch("/api/auth/spotify/client-id");
       if (resp.ok) {
@@ -95,7 +98,7 @@ export class SpotifyService {
         return this.cachedClientId;
       }
     } catch (e) {
-      console.error("[SpotifyService] Failed to fetch client ID from backend:", e);
+      // Quiet fallback
     }
     return null;
   }
@@ -157,6 +160,10 @@ export class SpotifyService {
     if (this.isConfiguredCache !== null) {
       return this.isConfiguredCache;
     }
+    if (typeof window !== "undefined" && window.location.hostname.includes("github.io")) {
+      this.isConfiguredCache = false;
+      return false;
+    }
     try {
       const resp = await fetch(`/api/auth/spotify/url?origin=${encodeURIComponent(origin)}`);
       if (resp.status === 500) {
@@ -170,9 +177,10 @@ export class SpotifyService {
         this.isConfiguredCache = true;
         return true;
       }
+      this.isConfiguredCache = false;
       return false;
     } catch (e) {
-      console.error("[SpotifyService] Error checking backend configuration:", e);
+      this.isConfiguredCache = false;
       return false;
     }
   }

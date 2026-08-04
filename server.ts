@@ -2752,52 +2752,54 @@ function runZlibHelper(args: any): Promise<any> {
   });
 }
 
-app.post("/api/zlib/login", async (req, res) => {
-  const { email, password, mirror } = req.body;
+app.all("/api/zlib/login", async (req, res) => {
+  const { email, password, mirror } = { ...req.query, ...req.body };
   if (!email || !password) {
     return res.status(400).json({ error: "Missing email or password" });
   }
   try {
-    const result = await runZlibHelper({ action: "login", email, password, mirror });
+    const result = await runZlibHelper({ action: "login", email: email as string, password: password as string, mirror: mirror as string });
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/zlib/search", async (req, res) => {
-  const { query, cookies, page, source, mirror } = req.body;
+app.all("/api/zlib/search", async (req, res) => {
+  const { query, cookies, page, source, mirror } = { ...req.query, ...req.body };
   if (!query) {
     return res.status(400).json({ error: "Missing query" });
   }
   try {
-    const result = await runZlibHelper({ action: "search", query, cookies, page: page || 1, source: source || "all", mirror });
+    const parsedPage = parseInt(page as string || "1", 10);
+    const result = await runZlibHelper({ action: "search", query: query as string, cookies, page: parsedPage, source: (source as string) || "all", mirror: mirror as string });
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/zlib/fetch_book", async (req, res) => {
-  const { id, cookies, mirror } = req.body;
+app.all("/api/zlib/fetch_book", async (req, res) => {
+  const { id, cookies, mirror } = { ...req.query, ...req.body };
   if (!id) {
     return res.status(400).json({ error: "Missing id" });
   }
   try {
-    const result = await runZlibHelper({ action: "fetch_book", id, cookies, mirror });
+    const result = await runZlibHelper({ action: "fetch_book", id: id as string, cookies, mirror: mirror as string });
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/zlib/search-direct-copies", async (req, res) => {
-  const { title, authors } = req.body;
+app.all("/api/zlib/search-direct-copies", async (req, res) => {
+  const { title, authors } = { ...req.query, ...req.body };
   if (!title) {
     return res.status(400).json({ error: "Missing title parameter" });
   }
   try {
-    const result = await runZlibHelper({ action: "search_direct_copies", title, authors: authors || [] });
+    const authorList = Array.isArray(authors) ? authors : (typeof authors === "string" ? [authors] : []);
+    const result = await runZlibHelper({ action: "search_direct_copies", title: title as string, authors: authorList });
     res.json({ status: "success", links: result.links || [] });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
