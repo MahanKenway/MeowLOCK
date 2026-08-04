@@ -607,13 +607,15 @@ app.post("/api/gemini/notes-assistant", async (req, res) => {
 
     res.json({ result: response.text });
   } catch (err: any) {
-    const isRateLimit = err?.message?.includes("quota") || err?.message?.includes("429") || err?.message?.includes("RESOURCE_EXHAUSTED");
-    if (isRateLimit) {
-      console.warn("[Notes Assistant] Rate limited/quota exceeded. Serving programmatic note improvement.");
+    console.warn("[Notes Assistant] Primary Gemini request failed. Executing ProviderManager fallback chain...");
+    try {
+      const fallbackResult = await ProviderManager.generateAICompletion(
+        `${promptInstruction}\n\nNote Content:\n"""\n${content}\n"""`
+      );
+      return res.json({ result: fallbackResult });
+    } catch (fallbackErr: any) {
+      console.warn("[Notes Assistant] All AI Providers failed. Serving programmatic note improvement.");
       res.json({ result: getProgrammaticNoteBackup(action, content) });
-    } else {
-      console.error("Error in notes-assistant:", err);
-      res.status(500).json({ error: err.message || "Failed to process notes assistant." });
     }
   }
 });
@@ -2877,6 +2879,519 @@ app.get("/api/zlib/download-proxy", async (req, res) => {
   } catch (err: any) {
     console.error("Download proxy error:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// =========================================================================
+// PROVIDER MANAGER: Multi-Provider Fallback & Orchestration Engine
+// =========================================================================
+
+export class ProviderManager {
+  /**
+   * AI Text Completion with Fallback Chain:
+   * Gemini -> Groq -> OpenAI -> OpenRouter -> Offline Programmatic
+   */
+  static async generateAICompletion(prompt: string, systemInstruction = "You are a helpful AI focus and study assistant."): Promise<string> {
+    // Provider 1: Gemini
+    if (process.env.GEMINI_API_KEY && ai) {
+      try {
+        console.log("[ProviderManager] Executing via Gemini API...");
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: [{ text: `${systemInstruction}\n\n${prompt}` }]
+        });
+        if (response.text) return response.text;
+      } catch (err: any) {
+        console.warn("[ProviderManager] Gemini failed or rate-limited:", err.message);
+      }
+    }
+
+    // Provider 2: Groq
+    if (process.env.GROQ_API_KEY) {
+      try {
+        console.log("[ProviderManager] Falling back to Groq API...");
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: systemInstruction },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.7
+          })
+        });
+        if (groqRes.ok) {
+          const data = await groqRes.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) return content;
+        } else {
+          console.warn("[ProviderManager] Groq API error status:", groqRes.status);
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] Groq API call failed:", err.message);
+      }
+    }
+
+    // Provider 3: OpenAI
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        console.log("[ProviderManager] Falling back to OpenAI API...");
+        const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemInstruction },
+              { role: "user", content: prompt }
+            ]
+          })
+        });
+        if (openaiRes.ok) {
+          const data = await openaiRes.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) return content;
+        } else {
+          console.warn("[ProviderManager] OpenAI API error status:", openaiRes.status);
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] OpenAI API call failed:", err.message);
+      }
+    }
+
+    // Provider 4: OpenRouter
+    if (process.env.OPENROUTER_API_KEY) {
+      try {
+        console.log("[ProviderManager] Falling back to OpenRouter API...");
+        const openrouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "HTTP-Referer": "https://meowlock.app",
+            "X-Title": "MeowLOCK Focus Workspace",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "meta-llama/llama-3.1-8b-instruct:free",
+            messages: [
+              { role: "system", content: systemInstruction },
+              { role: "user", content: prompt }
+            ]
+          })
+        });
+        if (openrouterRes.ok) {
+          const data = await openrouterRes.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) return content;
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] OpenRouter API call failed:", err.message);
+      }
+    }
+
+    throw new Error("All AI Providers (Gemini, Groq, OpenAI, OpenRouter) are currently unavailable or unconfigured.");
+  }
+
+  /**
+   * Stock Images Search Fallback Chain:
+   * Unsplash -> Pexels -> Pixabay -> Pinterest -> Local Library
+   */
+  static async searchStockImages(query: string, count = 10): Promise<any[]> {
+    // 1. Unsplash
+    if (process.env.UNSPLASH_ACCESS_KEY) {
+      try {
+        console.log("[ProviderManager] Searching Unsplash photos...");
+        const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${count}`, {
+          headers: { "Authorization": `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            return data.results.map((p: any) => ({
+              id: p.id,
+              provider: "Unsplash",
+              url: p.urls?.regular || p.urls?.full,
+              thumb: p.urls?.small,
+              title: p.alt_description || p.description || query,
+              author: p.user?.name || "Unsplash Creator",
+              link: p.links?.html
+            }));
+          }
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] Unsplash search failed:", err.message);
+      }
+    }
+
+    // 2. Pexels
+    if (process.env.PEXELS_API_KEY) {
+      try {
+        console.log("[ProviderManager] Searching Pexels photos...");
+        const res = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}`, {
+          headers: { "Authorization": process.env.PEXELS_API_KEY }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.photos && data.photos.length > 0) {
+            return data.photos.map((p: any) => ({
+              id: `pexels-${p.id}`,
+              provider: "Pexels",
+              url: p.src?.large2x || p.src?.large || p.src?.original,
+              thumb: p.src?.medium || p.src?.small,
+              title: p.alt || query,
+              author: p.photographer || "Pexels Creator",
+              link: p.url
+            }));
+          }
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] Pexels search failed:", err.message);
+      }
+    }
+
+    // 3. Pixabay
+    if (process.env.PIXABAY_API_KEY) {
+      try {
+        console.log("[ProviderManager] Searching Pixabay photos...");
+        const res = await fetch(`https://pixabay.com/api/?key=${process.env.PIXABAY_API_KEY}&q=${encodeURIComponent(query)}&per_page=${count}&image_type=photo`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hits && data.hits.length > 0) {
+            return data.hits.map((p: any) => ({
+              id: `pixabay-${p.id}`,
+              provider: "Pixabay",
+              url: p.largeImageURL || p.webformatURL,
+              thumb: p.previewURL || p.webformatURL,
+              title: p.tags || query,
+              author: p.user || "Pixabay Creator",
+              link: p.pageURL
+            }));
+          }
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] Pixabay search failed:", err.message);
+      }
+    }
+
+    // 4. Fallback high-res aesthetic photography
+    return fallbackImages.map((img, i) => ({
+      id: `fallback-${i}`,
+      provider: "MeowLOCK Library",
+      url: img,
+      thumb: img,
+      title: `${query} Aesthetic Wallpaper`,
+      author: "MeowLOCK Ambient Studio",
+      link: img
+    }));
+  }
+
+  /**
+   * Gaming Search Fallback Chain:
+   * RAWG -> Steam -> IGDB
+   */
+  static async searchGames(query: string): Promise<any[]> {
+    // 1. RAWG API
+    if (process.env.RAWG_API_KEY) {
+      try {
+        console.log("[ProviderManager] Searching RAWG games...");
+        const res = await fetch(`https://api.rawg.io/api/games?key=${process.env.RAWG_API_KEY}&search=${encodeURIComponent(query)}&page_size=10`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            return data.results.map((g: any) => ({
+              id: `rawg-${g.id}`,
+              provider: "RAWG",
+              name: g.name,
+              rating: g.rating,
+              released: g.released,
+              backgroundImage: g.background_image,
+              genres: g.genres?.map((x: any) => x.name) || [],
+              platforms: g.platforms?.map((x: any) => x.platform?.name) || []
+            }));
+          }
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] RAWG search failed:", err.message);
+      }
+    }
+
+    // 2. Steam API
+    if (process.env.STEAM_API_KEY) {
+      try {
+        console.log("[ProviderManager] Searching Steam games...");
+        const res = await fetch(`https://api.steampowered.com/ISteamApps/GetAppList/v2/`);
+        if (res.ok) {
+          const data = await res.json();
+          const apps = data.applist?.apps || [];
+          const matches = apps.filter((a: any) => a.name?.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+          if (matches.length > 0) {
+            return matches.map((a: any) => ({
+              id: `steam-${a.appid}`,
+              provider: "Steam",
+              name: a.name,
+              rating: 4.5,
+              released: "Available on Steam",
+              backgroundImage: `https://cdn.cloudflare.steamstatic.com/steam/apps/${a.appid}/header.jpg`,
+              genres: ["Steam Title"],
+              platforms: ["PC"]
+            }));
+          }
+        }
+      } catch (err: any) {
+        console.warn("[ProviderManager] Steam search failed:", err.message);
+      }
+    }
+
+    return [
+      {
+        id: "game-fallback-1",
+        provider: "MeowLOCK Games Archive",
+        name: `${query} (Retro Edition)`,
+        rating: 4.8,
+        released: "2024",
+        backgroundImage: fallbackImages[0],
+        genres: ["Lofi Soundtrack", "Chill Gaming"],
+        platforms: ["PC", "Web"]
+      }
+    ];
+  }
+}
+
+// ----------------- UNIFIED API PROXY ENDPOINTS -----------------
+
+// Unified AI Completion Route
+app.post("/api/ai/completion", async (req, res) => {
+  const { prompt, systemInstruction } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required." });
+  }
+
+  try {
+    const text = await ProviderManager.generateAICompletion(prompt, systemInstruction);
+    res.json({ result: text });
+  } catch (err: any) {
+    console.error("[Unified AI API] Error:", err.message);
+    res.status(500).json({ error: err.message || "Failed to generate AI response." });
+  }
+});
+
+// Unified Stock Images Search
+app.get("/api/media/stock-images", async (req, res) => {
+  const query = (req.query.q as string) || "aesthetic lo-fi wallpaper";
+  const count = parseInt((req.query.count as string) || "10", 10);
+
+  try {
+    const images = await ProviderManager.searchStockImages(query, count);
+    res.json({ results: images });
+  } catch (err: any) {
+    console.error("[Stock Images API] Error:", err.message);
+    res.status(500).json({ error: "Failed to search stock images." });
+  }
+});
+
+// Last.fm Music Metadata Proxy
+app.get("/api/music/lastfm", async (req, res) => {
+  const apiKey = process.env.LASTFM_API_KEY;
+  if (!apiKey) {
+    return res.status(400).json({ error: "LASTFM_API_KEY is not configured in environment." });
+  }
+
+  const method = (req.query.method as string) || "artist.getTopTracks";
+  const artist = (req.query.artist as string) || "ChilledCow";
+
+  try {
+    const url = `https://ws.audioscrobbler.com/2.0/?method=${encodeURIComponent(method)}&artist=${encodeURIComponent(artist)}&api_key=${apiKey}&format=json`;
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    console.error("[Last.fm API] Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch Last.fm data." });
+  }
+});
+
+// Genius Lyrics Proxy
+app.get("/api/music/genius-lyrics", async (req, res) => {
+  const token = process.env.GENIUS_ACCESS_TOKEN || process.env.GENIUS_API_KEY;
+  if (!token) {
+    return res.status(400).json({ error: "GENIUS_ACCESS_TOKEN / GENIUS_API_KEY is not configured." });
+  }
+
+  const query = req.query.q as string;
+  if (!query) {
+    return res.status(400).json({ error: "Search query 'q' is required." });
+  }
+
+  try {
+    const url = `https://api.genius.com/search?q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    console.error("[Genius API] Error:", err.message);
+    res.status(500).json({ error: "Failed to search Genius lyrics." });
+  }
+});
+
+// ElevenLabs Text-To-Speech Synthesis Proxy
+app.post("/api/audio/elevenlabs-tts", async (req, res) => {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    return res.status(400).json({ error: "ELEVENLABS_API_KEY is not configured." });
+  }
+
+  const { text, voiceId = "21m00Tcm4TlvDq8ikWAM" } = req.body;
+  if (!text) {
+    return res.status(400).json({ error: "Text content is required for speech synthesis." });
+  }
+
+  try {
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    const ttsRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg"
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_monolingual_v1",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75
+        }
+      })
+    });
+
+    if (!ttsRes.ok) {
+      throw new Error(`ElevenLabs API returned status ${ttsRes.status}`);
+    }
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    if (ttsRes.body) {
+      const { Readable } = await import("stream");
+      Readable.fromWeb(ttsRes.body as any).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err: any) {
+    console.error("[ElevenLabs API] Error:", err.message);
+    res.status(500).json({ error: err.message || "Failed to synthesize speech." });
+  }
+});
+
+// Gaming Search API
+app.get("/api/gaming/search", async (req, res) => {
+  const query = (req.query.q as string) || "cyberpunk";
+  try {
+    const games = await ProviderManager.searchGames(query);
+    res.json({ results: games });
+  } catch (err: any) {
+    console.error("[Gaming API] Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch gaming metadata." });
+  }
+});
+
+// Exchange Rate API Proxy
+app.get("/api/finance/exchange-rates", async (req, res) => {
+  const apiKey = process.env.EXCHANGERATE_API_KEY;
+  const base = (req.query.base as string) || "USD";
+
+  if (!apiKey) {
+    return res.status(400).json({ error: "EXCHANGERATE_API_KEY is not configured." });
+  }
+
+  try {
+    const url = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${encodeURIComponent(base)}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    console.error("[ExchangeRate API] Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch exchange rates." });
+  }
+});
+
+// Cobalt Media Download Proxy
+app.post("/api/media/cobalt-download", async (req, res) => {
+  const apiKey = process.env.COBALT_API_KEY;
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: "Target media URL is required." });
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch("https://api.cobalt.tools/api/json", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ url })
+    });
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    console.error("[Cobalt API] Error:", err.message);
+    res.status(500).json({ error: "Failed to process Cobalt download request." });
+  }
+});
+
+// Bot & Webhook Notification Proxy
+app.post("/api/bot/notify", async (req, res) => {
+  const botToken = process.env.BOT_TOKEN;
+  const webhookSecret = process.env.BOT_WEBHOOK_SECRET;
+  const ownerIds = process.env.OWNER_IDS;
+
+  const { message, secret } = req.body;
+
+  if (webhookSecret && secret !== webhookSecret) {
+    return res.status(403).json({ error: "Invalid webhook secret authorization." });
+  }
+
+  if (!botToken) {
+    return res.status(400).json({ error: "BOT_TOKEN is missing in runtime environment." });
+  }
+
+  try {
+    const targetChatId = ownerIds ? ownerIds.split(",")[0].trim() : "";
+    if (!targetChatId) {
+      return res.status(400).json({ error: "OWNER_IDS is not configured." });
+    }
+
+    const tgUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    const tgRes = await fetch(tgUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: targetChatId,
+        text: message || "🔔 MeowLOCK Focus Session Milestone Reached!"
+      })
+    });
+
+    const data = await tgRes.json();
+    res.json(data);
+  } catch (err: any) {
+    console.error("[Bot Notify API] Error:", err.message);
+    res.status(500).json({ error: "Failed to send bot notification." });
   }
 });
 
