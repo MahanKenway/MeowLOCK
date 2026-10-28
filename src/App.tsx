@@ -38,6 +38,7 @@ import {
   Calendar,
   Check,
   Radio,
+  Heart,
   HeartPulse,
   Telescope, CloudSun, Cat
 } from "lucide-react";
@@ -298,6 +299,7 @@ import SpaceExplorer from "./components/SpaceExplorer";
 import CatCompanion from "./components/CatCompanion";
 import LibraryWidget from "./components/LibraryWidget";
 import TiltedCard from "./components/TiltedCard";
+import ButtercupIntro from "./components/ButtercupIntro";
 
 // --- STATIC BACKGROUND IMAGE IMPORTS FOR ROBUST BUNDLING ---
 import bgSetarehStudy from "./assets/images/setareh_pixel_study_v2_1783524583594.jpg";
@@ -986,6 +988,7 @@ export default function App() {
     setFocusHistory([]);
   };
 
+  const [showButtercupIntro, setShowButtercupIntro] = useState<boolean>(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMinimalMode, setIsMinimalMode] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -3881,7 +3884,16 @@ export default function App() {
             <CloudSun className="w-5 h-5" />
           </button>
 
-          {/* 14. Settings */}
+          {/* 14. Buttercup Intro */}
+          <button
+            onClick={() => setShowButtercupIntro(true)}
+            className="p-3 rounded-lg transition-all shrink-0 text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
+            title="i miss you buttercup ✦"
+          >
+            <Sparkles className="w-5 h-5 text-slate-200 drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+          </button>
+
+          {/* 15. Settings */}
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-3 rounded-lg transition-all shrink-0 text-gray-400 cursor-pointer"
@@ -3890,7 +3902,7 @@ export default function App() {
             <Settings className="w-5 h-5" />
           </button>
 
-          {/* 15. Zen Mode */}
+          {/* 16. Zen Mode */}
           <button
             onClick={() => setIsMinimalMode(true)}
             className="p-3 rounded-lg transition-all shrink-0 text-gray-400 cursor-pointer"
@@ -3957,6 +3969,13 @@ export default function App() {
       </AnimatePresence>
   
       <CatCompanion />
+  
+      {/* --- BUTTERCUP INTRO WELCOME SCREEN --- */}
+      <AnimatePresence>
+        {showButtercupIntro && (
+          <ButtercupIntro onEnter={() => setShowButtercupIntro(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
